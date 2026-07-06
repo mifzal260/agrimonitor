@@ -1,4 +1,8 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+const defaultApiBaseUrl = window.location.hostname.includes("onrender.com")
+  ? "https://agrimonitor-backend.onrender.com/api/v1"
+  : "http://localhost:8000/api/v1";
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl;
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
