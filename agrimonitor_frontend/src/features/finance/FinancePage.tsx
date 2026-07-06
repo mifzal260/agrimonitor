@@ -14,7 +14,10 @@ export function FinancePage({ token }: FinancePageProps) {
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [summary, setSummary] = useState<ProfitLossSummary | null>(null);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingCost, setIsSavingCost] = useState(false);
+  const [isSavingHarvest, setIsSavingHarvest] = useState(false);
   const [costForm, setCostForm] = useState({ planting_record_id: "", cost_type: "", amount: "", cost_date: "", notes: "" });
   const [harvestForm, setHarvestForm] = useState({ planting_record_id: "", harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
 
@@ -40,16 +43,38 @@ export function FinancePage({ token }: FinancePageProps) {
 
   async function submitCost(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createCost(token, { ...costForm, planting_record_id: Number(costForm.planting_record_id) });
-    setCostForm({ planting_record_id: "", cost_type: "", amount: "", cost_date: "", notes: "" });
-    await loadData();
+    setError("");
+    setSuccessMessage("");
+    setIsSavingCost(true);
+    try {
+      const savedCost = await createCost(token, { ...costForm, planting_record_id: Number(costForm.planting_record_id) });
+      setCosts((currentCosts) => [savedCost, ...currentCosts.filter((cost) => cost.id !== savedCost.id)]);
+      setCostForm({ planting_record_id: "", cost_type: "", amount: "", cost_date: "", notes: "" });
+      setSummary(await getFinanceSummary(token));
+      setSuccessMessage("Kos berjaya disimpan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kos gagal disimpan.");
+    } finally {
+      setIsSavingCost(false);
+    }
   }
 
   async function submitHarvest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createHarvest(token, { ...harvestForm, planting_record_id: Number(harvestForm.planting_record_id) });
-    setHarvestForm({ planting_record_id: "", harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
-    await loadData();
+    setError("");
+    setSuccessMessage("");
+    setIsSavingHarvest(true);
+    try {
+      const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(harvestForm.planting_record_id) });
+      setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
+      setHarvestForm({ planting_record_id: "", harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
+      setSummary(await getFinanceSummary(token));
+      setSuccessMessage("Hasil tuaian berjaya disimpan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hasil tuaian gagal disimpan.");
+    } finally {
+      setIsSavingHarvest(false);
+    }
   }
 
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading finance data...</p>;
@@ -57,6 +82,7 @@ export function FinancePage({ token }: FinancePageProps) {
   return (
     <div className="space-y-5">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>}
       <section className="grid gap-3 md:grid-cols-3">
         <SummaryCard label="Total Cost" value={`RM ${summary?.total_cost ?? "0"}`} tone="warning" />
         <SummaryCard label="Revenue" value={`RM ${summary?.total_revenue ?? "0"}`} tone="success" />
@@ -70,7 +96,7 @@ export function FinancePage({ token }: FinancePageProps) {
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost type" value={costForm.cost_type} onChange={(event) => setCostForm({ ...costForm, cost_type: event.target.value })} required />
           <div className="grid grid-cols-2 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Amount" value={costForm.amount} onChange={(event) => setCostForm({ ...costForm, amount: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={costForm.cost_date} onChange={(event) => setCostForm({ ...costForm, cost_date: event.target.value })} required /></div>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={costForm.notes} onChange={(event) => setCostForm({ ...costForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save cost</button>
+          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingCost}>{isSavingCost ? "Saving..." : "Save cost"}</button>
         </form>
 
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -79,7 +105,7 @@ export function FinancePage({ token }: FinancePageProps) {
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
           <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Quantity" value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={harvestForm.unit} onChange={(event) => setHarvestForm({ ...harvestForm, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required /></div>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save harvest</button>
+          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest}>{isSavingHarvest ? "Saving..." : "Save harvest"}</button>
         </form>
       </div>
 

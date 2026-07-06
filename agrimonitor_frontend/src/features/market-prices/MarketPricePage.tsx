@@ -19,6 +19,8 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
 
   async function loadData() {
     setError("");
@@ -44,19 +46,40 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   async function submitPrice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    await createMarketPrice(token, form);
-    setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
-    setMessage("Market price saved.");
-    await loadData();
+    setError("");
+    setIsSavingPrice(true);
+    try {
+      const savedPrice = await createMarketPrice(token, form);
+      setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
+      setLatestPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)].slice(0, 3));
+      setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
+      setMessage("Harga pasaran berjaya disimpan dan sudah muncul dalam senarai.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Harga pasaran gagal disimpan.");
+    } finally {
+      setIsSavingPrice(false);
+    }
   }
 
   async function submitCsv(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!csvFile) return;
-    const result = await importMarketPricesCsv(token, csvFile);
-    setCsvFile(null);
-    setMessage(`CSV imported: ${result.imported} rows, skipped ${result.skipped}.`);
-    await loadData();
+    if (!csvFile) {
+      setError("Pilih fail CSV dahulu.");
+      return;
+    }
+    setMessage("");
+    setError("");
+    setIsImportingCsv(true);
+    try {
+      const result = await importMarketPricesCsv(token, csvFile);
+      setCsvFile(null);
+      setMessage(`CSV berjaya diimport: ${result.imported} baris, ${result.skipped} dilangkau.`);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV gagal diimport.");
+    } finally {
+      setIsImportingCsv(false);
+    }
   }
 
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading market prices...</p>;
@@ -97,13 +120,13 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
             <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stable</option><option value="up">Up</option><option value="down">Down</option></select></div>
             <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save price</button>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? "Saving..." : "Save price"}</button>
           </form>
           <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
             <h3 className="font-semibold">Import CSV</h3>
             <p className="text-sm text-slate-600">Required columns: commodity_name, location, price_type, price, unit, recorded_date. Optional: trend.</p>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Import CSV</button>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? "Importing..." : "Import CSV"}</button>
           </form>
         </div>
       )}
