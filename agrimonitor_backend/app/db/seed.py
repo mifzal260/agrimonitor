@@ -1,0 +1,115 @@
+from datetime import date
+from decimal import Decimal
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.database import SessionLocal
+from app.models.crop import Crop
+from app.models.disease_rule import DiseaseRule, DiseaseRuleSymptom
+from app.models.market_price import MarketPrice
+from app.models.symptom import Symptom
+
+
+def seed_crops(db: Session) -> dict[str, Crop]:
+    demo_crops = [
+        Crop(name="Chili", variety="Red chili", description="Common chili crop for demo monitoring.", expected_harvest_days=90),
+        Crop(name="Tomato", variety="Cherry tomato", description="Demo tomato crop for disease rule examples.", expected_harvest_days=75),
+        Crop(name="Cucumber", variety="Green cucumber", description="Demo cucumber crop for market price examples.", expected_harvest_days=55),
+    ]
+    existing = {crop.name: crop for crop in db.scalars(select(Crop)).all()}
+    for crop in demo_crops:
+        if crop.name not in existing:
+            db.add(crop)
+    db.flush()
+    return {crop.name: crop for crop in db.scalars(select(Crop)).all()}
+
+
+def seed_symptoms(db: Session) -> dict[str, Symptom]:
+    demo_symptoms = [
+        Symptom(name="Yellow leaves", description="Leaves turn pale or yellow."),
+        Symptom(name="Brown spots", description="Brown or dark spots appear on leaves."),
+        Symptom(name="Wilting", description="Plant looks weak or droops."),
+        Symptom(name="Leaf curl", description="Leaves curl or become distorted."),
+    ]
+    existing = {symptom.name: symptom for symptom in db.scalars(select(Symptom)).all()}
+    for symptom in demo_symptoms:
+        if symptom.name not in existing:
+            db.add(symptom)
+    db.flush()
+    return {symptom.name: symptom for symptom in db.scalars(select(Symptom)).all()}
+
+
+def seed_disease_rules(db: Session, crops: dict[str, Crop], symptoms: dict[str, Symptom]) -> None:
+    demo_rules = [
+        {
+            "crop": "Chili",
+            "disease_name": "Possible nutrient stress",
+            "risk_level": "low",
+            "recommendation": "Check watering schedule and add balanced fertilizer if needed.",
+            "symptoms": ["Yellow leaves"],
+        },
+        {
+            "crop": "Tomato",
+            "disease_name": "Possible leaf spot",
+            "risk_level": "medium",
+            "recommendation": "Remove affected leaves and improve airflow around plants.",
+            "symptoms": ["Brown spots", "Yellow leaves"],
+        },
+        {
+            "crop": "Cucumber",
+            "disease_name": "Possible severe water or root stress",
+            "risk_level": "high",
+            "recommendation": "Inspect soil moisture and roots immediately. Isolate affected plants if symptoms spread.",
+            "symptoms": ["Wilting", "Leaf curl"],
+        },
+    ]
+    existing_names = set(db.scalars(select(DiseaseRule.disease_name)).all())
+    for rule_data in demo_rules:
+        if rule_data["disease_name"] in existing_names:
+            continue
+        rule = DiseaseRule(
+            crop_id=crops[rule_data["crop"]].id,
+            disease_name=rule_data["disease_name"],
+            risk_level=rule_data["risk_level"],
+            recommendation=rule_data["recommendation"],
+        )
+        db.add(rule)
+        db.flush()
+        for symptom_name in rule_data["symptoms"]:
+            db.add(DiseaseRuleSymptom(disease_rule_id=rule.id, symptom_id=symptoms[symptom_name].id))
+
+
+def seed_market_prices(db: Session, crops: dict[str, Crop]) -> None:
+    demo_prices = [
+        MarketPrice(crop_id=crops["Chili"].id, commodity_name="Chili", location="Kuala Lumpur", price_type="retail", price=Decimal("12.50"), unit="kg", recorded_date=date(2026, 7, 1), trend="up"),
+        MarketPrice(crop_id=crops["Tomato"].id, commodity_name="Tomato", location="Selangor", price_type="wholesale", price=Decimal("4.80"), unit="kg", recorded_date=date(2026, 7, 1), trend="stable"),
+        MarketPrice(crop_id=crops["Cucumber"].id, commodity_name="Cucumber", location="Johor", price_type="retail", price=Decimal("3.20"), unit="kg", recorded_date=date(2026, 7, 1), trend="down"),
+    ]
+    existing = {
+        (price.commodity_name, price.location, price.price_type, price.recorded_date)
+        for price in db.scalars(select(MarketPrice)).all()
+    }
+    for price in demo_prices:
+        key = (price.commodity_name, price.location, price.price_type, price.recorded_date)
+        if key not in existing:
+            db.add(price)
+
+
+def run_seed() -> None:
+    db = SessionLocal()
+    try:
+        crops = seed_crops(db)
+        symptoms = seed_symptoms(db)
+        seed_disease_rules(db, crops, symptoms)
+        seed_market_prices(db, crops)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    run_seed()
