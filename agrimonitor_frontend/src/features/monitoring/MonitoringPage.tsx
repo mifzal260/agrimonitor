@@ -42,6 +42,8 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isSavingPlanting, setIsSavingPlanting] = useState(false);
+  const [isSavingActivity, setIsSavingActivity] = useState(false);
+  const [isSavingSymptom, setIsSavingSymptom] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
@@ -86,16 +88,16 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
     setIsSavingPlanting(true);
     try {
-      await createPlantingRecord(token, {
+      const savedRecord = await createPlantingRecord(token, {
         ...plantingForm,
         crop_id: Number(plantingForm.crop_id),
         field_name: plantingForm.field_name.trim(),
         area_size: areaSize,
         notes: plantingForm.notes.trim(),
       });
+      setRecords((currentRecords) => [savedRecord, ...currentRecords.filter((record) => record.id !== savedRecord.id)]);
       setPlantingForm({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
-      await loadData();
-      setSuccessMessage("Rekod tanaman berjaya disimpan.");
+      setSuccessMessage(`Rekod ${savedRecord.field_name} berjaya disimpan dan sudah muncul di senarai bawah.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rekod tanaman gagal disimpan.");
     } finally {
@@ -105,21 +107,41 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
   async function submitActivity(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createActivity(token, { ...activityForm, planting_record_id: Number(activityForm.planting_record_id) });
-    setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
-    await loadData();
+    setError("");
+    setSuccessMessage("");
+    setIsSavingActivity(true);
+    try {
+      const savedActivity = await createActivity(token, { ...activityForm, planting_record_id: Number(activityForm.planting_record_id) });
+      setActivities((currentActivities) => [savedActivity, ...currentActivities.filter((activity) => activity.id !== savedActivity.id)]);
+      setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
+      setSuccessMessage("Aktiviti ladang berjaya disimpan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Aktiviti ladang gagal disimpan.");
+    } finally {
+      setIsSavingActivity(false);
+    }
   }
 
   async function submitSymptom(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const saved = await createSymptomRecord(token, {
-      ...symptomForm,
-      planting_record_id: Number(symptomForm.planting_record_id),
-      symptom_id: Number(symptomForm.symptom_id),
-    });
-    setSymptomForm({ planting_record_id: "", symptom_id: "", severity: "low", notes: "", image_url: "" });
-    await evaluate(saved.planting_record_id);
-    await loadData();
+    setError("");
+    setSuccessMessage("");
+    setIsSavingSymptom(true);
+    try {
+      const saved = await createSymptomRecord(token, {
+        ...symptomForm,
+        planting_record_id: Number(symptomForm.planting_record_id),
+        symptom_id: Number(symptomForm.symptom_id),
+      });
+      setSymptomRecords((currentRecords) => [saved, ...currentRecords.filter((record) => record.id !== saved.id)]);
+      setSymptomForm({ planting_record_id: "", symptom_id: "", severity: "low", notes: "", image_url: "" });
+      setSuccessMessage("Pemerhatian simptom berjaya disimpan.");
+      await evaluate(saved.planting_record_id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Pemerhatian simptom gagal disimpan.");
+    } finally {
+      setIsSavingSymptom(false);
+    }
   }
 
   async function evaluate(recordId: number) {
@@ -216,18 +238,30 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
         </label>
         <button className="w-full rounded-md bg-field-700 px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-field-800 disabled:opacity-60" type="submit" disabled={isSavingPlanting}>{isSavingPlanting ? "Sedang menyimpan..." : "Simpan rekod tanaman"}</button>
+        {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{successMessage}</p>}
+        {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
       </form>
 
-      {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} /></div>}
+      {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} isSaving={isSavingActivity} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} isSaving={isSavingSymptom} /></div>}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {records.map((record) => (
-          <article key={record.id} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} /></div>
-            <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Age: {record.plant_age_days} days</p>
-            <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => evaluate(record.id)}>{isEvaluating ? "Evaluating..." : "Evaluate risk"}</button>
-          </article>
-        ))}
+      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-semibold">Senarai rekod tanaman</h3>
+          <StatusBadge label={`${records.length} rekod`} tone="info" />
+        </div>
+        {records.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">Belum ada rekod tanaman. Isi borang di atas dan tekan Simpan rekod tanaman.</p>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {records.map((record) => (
+              <article key={record.id} className="rounded-lg border border-field-100 bg-field-50 p-4">
+                <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} /></div>
+                <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Umur tanaman: {record.plant_age_days} hari</p>
+                <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => evaluate(record.id)}>{isEvaluating ? "Sedang semak..." : "Semak risiko"}</button>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-4 md:grid-cols-2"><List title="Recent activities" items={activities.map((item) => `${item.activity_date} - ${item.activity_type}`)} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
@@ -235,12 +269,12 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   );
 }
 
-function ActivityForm({ records, form, setForm, onSubmit }: { records: PlantingRecord[]; form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }; setForm: (form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void }) {
-  return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record activity</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Activity type" value={form.activity_type} onChange={(event) => setForm({ ...form, activity_type: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={form.activity_date} onChange={(event) => setForm({ ...form, activity_date: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost amount" value={form.cost_amount} onChange={(event) => setForm({ ...form, cost_amount: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save activity</button></form>;
+function ActivityForm({ records, form, setForm, onSubmit, isSaving }: { records: PlantingRecord[]; form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }; setForm: (form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean }) {
+  return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record activity</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Activity type" value={form.activity_type} onChange={(event) => setForm({ ...form, activity_type: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={form.activity_date} onChange={(event) => setForm({ ...form, activity_date: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost amount" value={form.cost_amount} onChange={(event) => setForm({ ...form, cost_amount: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save activity"}</button></form>;
 }
 
-function SymptomForm({ records, symptoms, form, setForm, onSubmit }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void }) {
-  return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record symptom</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.symptom_id} onChange={(event) => setForm({ ...form, symptom_id: event.target.value })} required><option value="">Select symptom</option>{symptoms.map((symptom) => <option key={symptom.id} value={symptom.id}>{symptom.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.severity} onChange={(event) => setForm({ ...form, severity: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save symptom</button></form>;
+function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean }) {
+  return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record symptom</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.symptom_id} onChange={(event) => setForm({ ...form, symptom_id: event.target.value })} required><option value="">Select symptom</option>{symptoms.map((symptom) => <option key={symptom.id} value={symptom.id}>{symptom.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.severity} onChange={(event) => setForm({ ...form, severity: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save symptom"}</button></form>;
 }
 
 function List({ title, items }: { title: string; items: string[] }) {
