@@ -28,3 +28,6 @@ yarn-error.log*
 # Local agent metadata
 .agents/
 .codex/
+
+# Python packaging metadata
+*.egg-info/

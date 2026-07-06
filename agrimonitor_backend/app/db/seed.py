@@ -4,6 +4,8 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db import base as _models
+
 from app.db.database import SessionLocal
 from app.models.crop import Crop
 from app.models.disease_rule import DiseaseRule, DiseaseRuleSymptom
