@@ -143,13 +143,29 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.crop_id} onChange={(event) => setPlantingForm({ ...plantingForm, crop_id: event.target.value })} required>
           <option value="">Select crop</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
         </select>
-        <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Field name" value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
-        <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={plantingForm.planting_date} onChange={(event) => setPlantingForm({ ...plantingForm, planting_date: event.target.value })} required />
-        <div className="grid grid-cols-2 gap-3">
-          <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Area" value={plantingForm.area_size} onChange={(event) => setPlantingForm({ ...plantingForm, area_size: event.target.value })} />
-          <select className="rounded-md border border-slate-300 px-3 py-2" value={plantingForm.status} onChange={(event) => setPlantingForm({ ...plantingForm, status: event.target.value })}><option value="healthy">Healthy</option><option value="watch">Watch</option><option value="risk">Risk</option><option value="harvested">Harvested</option></select>
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          <span>Plot / field name</span>
+          <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Plot A or Batas Cili 1" value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
+        </label>
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          <span>Planting date</span>
+          <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={plantingForm.planting_date} onChange={(event) => setPlantingForm({ ...plantingForm, planting_date: event.target.value })} required />
+        </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="block space-y-1 text-sm font-medium text-slate-700">
+            <span>Area size (hectare)</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Example: 0.25" value={plantingForm.area_size} onChange={(event) => setPlantingForm({ ...plantingForm, area_size: event.target.value })} />
+            <span className="block text-xs font-normal text-slate-500">Use hectare. Example: 0.25 = quarter hectare.</span>
+          </label>
+          <label className="block space-y-1 text-sm font-medium text-slate-700">
+            <span>Plant status</span>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.status} onChange={(event) => setPlantingForm({ ...plantingForm, status: event.target.value })}><option value="healthy">Healthy</option><option value="watch">Watch</option><option value="risk">Risk</option><option value="harvested">Harvested</option></select>
+          </label>
         </div>
-        <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
+        <label className="block space-y-1 text-sm font-medium text-slate-700">
+          <span>Notes</span>
+          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
+        </label>
         <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save planting record</button>
       </form>
 
