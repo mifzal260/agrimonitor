@@ -8,6 +8,28 @@ import type { Alert, RecommendationResult } from "../../types/recommendation";
 
 type MonitoringPageProps = { token: string };
 
+function normalizeDecimalInput(value: string) {
+  return value.trim().replace(",", ".");
+}
+
+function isValidDecimal(value: string) {
+  return value === "" || /^\d+(\.\d+)?$/.test(value);
+}
+
+function plantStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    healthy: "Sihat",
+    watch: "Perlu pantau",
+    risk: "Bermasalah",
+    harvested: "Sudah dituai",
+  };
+  return labels[status] ?? status;
+}
+
+function plantStatusTone(status: string): "success" | "warning" {
+  return status === "risk" || status === "watch" ? "warning" : "success";
+}
+
 export function MonitoringPage({ token }: MonitoringPageProps) {
   const [crops, setCrops] = useState<Crop[]>([]);
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
@@ -19,6 +41,8 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isSavingPlanting, setIsSavingPlanting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
@@ -51,9 +75,32 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
   async function submitPlantingRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await createPlantingRecord(token, { ...plantingForm, crop_id: Number(plantingForm.crop_id) });
-    setPlantingForm({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
-    await loadData();
+    setError("");
+    setSuccessMessage("");
+
+    const areaSize = normalizeDecimalInput(plantingForm.area_size);
+    if (!isValidDecimal(areaSize)) {
+      setError("Masukkan luas kawasan dalam nombor sahaja, contoh 0.5.");
+      return;
+    }
+
+    setIsSavingPlanting(true);
+    try {
+      await createPlantingRecord(token, {
+        ...plantingForm,
+        crop_id: Number(plantingForm.crop_id),
+        field_name: plantingForm.field_name.trim(),
+        area_size: areaSize,
+        notes: plantingForm.notes.trim(),
+      });
+      setPlantingForm({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
+      await loadData();
+      setSuccessMessage("Rekod tanaman berjaya disimpan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rekod tanaman gagal disimpan.");
+    } finally {
+      setIsSavingPlanting(false);
+    }
   }
 
   async function submitActivity(event: React.FormEvent<HTMLFormElement>) {
@@ -94,6 +141,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   return (
     <div className="space-y-5">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>}
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
@@ -144,29 +192,30 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           <option value="">Select crop</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
         </select>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
-          <span>Plot / field name</span>
-          <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Plot A or Batas Cili 1" value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
+          <span>Nama petak / kawasan</span>
+          <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Plot A atau Batas Cili 1" value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
         </label>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
-          <span>Planting date</span>
+          <span>Tarikh tanam</span>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={plantingForm.planting_date} onChange={(event) => setPlantingForm({ ...plantingForm, planting_date: event.target.value })} required />
         </label>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="block space-y-1 text-sm font-medium text-slate-700">
-            <span>Area size (hectare)</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Example: 0.25" value={plantingForm.area_size} onChange={(event) => setPlantingForm({ ...plantingForm, area_size: event.target.value })} />
-            <span className="block text-xs font-normal text-slate-500">Use hectare. Example: 0.25 = quarter hectare.</span>
+            <span>Luas kawasan (hektar)</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Contoh: 0.25" value={plantingForm.area_size} onChange={(event) => setPlantingForm({ ...plantingForm, area_size: event.target.value })} />
+            <span className="block text-xs font-normal text-slate-500">Masukkan nombor sahaja. Contoh: 0.25 = suku hektar.</span>
           </label>
           <label className="block space-y-1 text-sm font-medium text-slate-700">
-            <span>Plant status</span>
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.status} onChange={(event) => setPlantingForm({ ...plantingForm, status: event.target.value })}><option value="healthy">Healthy</option><option value="watch">Watch</option><option value="risk">Risk</option><option value="harvested">Harvested</option></select>
+            <span>Keadaan tanaman</span>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.status} onChange={(event) => setPlantingForm({ ...plantingForm, status: event.target.value })}><option value="healthy">Sihat</option><option value="watch">Perlu pantau</option><option value="risk">Bermasalah</option><option value="harvested">Sudah dituai</option></select>
+            <span className="block text-xs font-normal text-slate-500">Pilih Sihat jika tiada masalah. Guna Perlu pantau jika kurang pasti.</span>
           </label>
         </div>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
-          <span>Notes</span>
-          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
+          <span>Catatan</span>
+          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
         </label>
-        <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white" type="submit">Save planting record</button>
+        <button className="w-full rounded-md bg-field-700 px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-field-800 disabled:opacity-60" type="submit" disabled={isSavingPlanting}>{isSavingPlanting ? "Sedang menyimpan..." : "Simpan rekod tanaman"}</button>
       </form>
 
       {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} /></div>}
@@ -174,7 +223,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       <section className="grid gap-4 md:grid-cols-3">
         {records.map((record) => (
           <article key={record.id} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={record.status} tone={record.status === "risk" ? "warning" : "success"} /></div>
+            <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} /></div>
             <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Age: {record.plant_age_days} days</p>
             <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => evaluate(record.id)}>{isEvaluating ? "Evaluating..." : "Evaluate risk"}</button>
           </article>
