@@ -30,6 +30,15 @@ function plantStatusTone(status: string): "success" | "warning" {
   return status === "risk" || status === "watch" ? "warning" : "success";
 }
 
+function toCurrency(value: string | null) {
+  const amount = Number(value ?? 0);
+  return `RM ${amount.toFixed(2)}`;
+}
+
+function totalActivityCost(activities: Activity[]) {
+  return activities.reduce((total, activity) => total + Number(activity.cost_amount ?? 0), 0);
+}
+
 export function MonitoringPage({ token }: MonitoringPageProps) {
   const [crops, setCrops] = useState<Crop[]>([]);
   const [symptoms, setSymptoms] = useState<Symptom[]>([]);
@@ -264,7 +273,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         )}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2"><List title="Recent activities" items={activities.map((item) => `${item.activity_date} - ${item.activity_type}`)} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
+      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary activities={activities} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
     </div>
   );
 }
@@ -275,6 +284,31 @@ function ActivityForm({ records, form, setForm, onSubmit, isSaving }: { records:
 
 function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; severity: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean }) {
   return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record symptom</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.symptom_id} onChange={(event) => setForm({ ...form, symptom_id: event.target.value })} required><option value="">Select symptom</option>{symptoms.map((symptom) => <option key={symptom.id} value={symptom.id}>{symptom.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.severity} onChange={(event) => setForm({ ...form, severity: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save symptom"}</button></form>;
+}
+
+function ActivitySummary({ activities }: { activities: Activity[] }) {
+  const totalCost = totalActivityCost(activities);
+  return (
+    <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">Recent activities</h3>
+        <StatusBadge label={toCurrency(String(totalCost))} tone={totalCost > 0 ? "warning" : "info"} />
+      </div>
+      {activities.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-600">No records yet.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
+          {activities.slice(0, 5).map((activity) => (
+            <li key={activity.id} className="flex items-center justify-between gap-3 py-2">
+              <span>{activity.activity_date} - {activity.activity_type}</span>
+              <span className="shrink-0 font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 border-t border-slate-100 pt-3 text-sm font-semibold text-slate-950">Total kos aktiviti: {toCurrency(String(totalCost))}</p>
+    </div>
+  );
 }
 
 function List({ title, items }: { title: string; items: string[] }) {
