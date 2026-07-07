@@ -54,7 +54,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [recommendation, setRecommendation] = useState<RecommendationResult | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [, setIsEvaluating] = useState(false);
   const [isSavingPlanting, setIsSavingPlanting] = useState(false);
   const [isSavingActivity, setIsSavingActivity] = useState(false);
   const [isSavingSymptom, setIsSavingSymptom] = useState(false);
@@ -327,8 +327,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       <PlantingRecordList
         records={records}
         crops={crops}
-        isEvaluating={isEvaluating}
-        onEvaluate={evaluate}
         onUpdate={handleUpdatePlantingRecord}
         onDelete={handleDeletePlantingRecord}
       />
@@ -338,7 +336,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   );
 }
 
-function PlantingRecordList({ records, crops, isEvaluating, onEvaluate, onUpdate, onDelete }: { records: PlantingRecord[]; crops: Crop[]; isEvaluating: boolean; onEvaluate: (recordId: number) => void; onUpdate: (recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) => Promise<void>; onDelete: (recordId: number) => Promise<void> }) {
+function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: PlantingRecord[]; crops: Crop[]; onUpdate: (recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) => Promise<void>; onDelete: (recordId: number) => Promise<void> }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [editForm, setEditForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
@@ -410,7 +408,6 @@ function PlantingRecordList({ records, crops, isEvaluating, onEvaluate, onUpdate
                     </div>
                   </div>
                   <p className="text-sm text-slate-600">Umur tanaman (HST): {record.plant_age_days} hari</p>
-                  <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => onEvaluate(record.id)}>{isEvaluating ? "Sedang semak..." : "Semak risiko"}</button>
                 </>
               )}
             </article>
