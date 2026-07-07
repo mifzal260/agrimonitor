@@ -11,7 +11,7 @@ from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
 from app.models.user import User
 from app.schemas.monitoring import ActivityCreate, ActivityRead, ActivityUpdate, CropRead, PlantingRecordCreate, PlantingRecordRead, PlantingRecordUpdate, SymptomRead, SymptomRecordCreate, SymptomRecordRead, SymptomRecordUpdate
-from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, update_symptom_record
+from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, update_symptom_record
 
 router = APIRouter()
 

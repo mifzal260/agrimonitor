@@ -32,6 +32,28 @@ export function createPlantingRecord(token: string, payload: {
   });
 }
 
+
+export function updatePlantingRecord(token: string, recordId: number, payload: {
+  crop_id?: number;
+  field_name?: string;
+  planting_date?: string;
+  area_size?: string;
+  status?: string;
+  notes?: string;
+}) {
+  return apiRequest<PlantingRecord>(`/monitoring/planting-records/${recordId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...payload, area_size: payload.area_size || null, notes: payload.notes || null }),
+  });
+}
+
+export function deletePlantingRecord(token: string, recordId: number) {
+  return apiRequest<null>(`/monitoring/planting-records/${recordId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
 export function listActivities(token: string) {
   return apiRequest<Activity[]>("/monitoring/activities", { headers: authHeaders(token) });
 }

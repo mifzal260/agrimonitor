@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity } from "../../api/monitoring";
+import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
@@ -119,6 +119,46 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     }
   }
 
+
+  async function handleUpdatePlantingRecord(recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) {
+    setError("");
+    setSuccessMessage("");
+    const areaSize = normalizeDecimalInput(form.area_size);
+    if (!isValidDecimal(areaSize)) {
+      setError("Masukkan luas kawasan dalam nombor sahaja, contoh 0.5.");
+      return;
+    }
+    try {
+      const updated = await updatePlantingRecord(token, recordId, {
+        crop_id: Number(form.crop_id),
+        field_name: form.field_name.trim(),
+        planting_date: form.planting_date,
+        area_size: areaSize,
+        status: form.status,
+        notes: form.notes.trim(),
+      });
+      setRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      setSuccessMessage("Rekod tanaman berjaya dikemaskini.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rekod tanaman gagal dikemaskini.");
+    }
+  }
+
+  async function handleDeletePlantingRecord(recordId: number) {
+    const confirmed = window.confirm("Padam rekod tanaman ini? Aktiviti dan simptom berkaitan juga akan hilang daripada paparan.");
+    if (!confirmed) return;
+    setError("");
+    setSuccessMessage("");
+    try {
+      await deletePlantingRecord(token, recordId);
+      setRecords((currentRecords) => currentRecords.filter((record) => record.id !== recordId));
+      setActivities((currentActivities) => currentActivities.filter((activity) => activity.planting_record_id !== recordId));
+      setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.planting_record_id !== recordId));
+      setSuccessMessage("Rekod tanaman berjaya dipadam.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rekod tanaman gagal dipadam.");
+    }
+  }
   async function submitActivity(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -284,31 +324,102 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
       {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} isSaving={isSavingActivity} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} isSaving={isSavingSymptom} /></div>}
 
-      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold">Senarai rekod tanaman</h3>
-          <StatusBadge label={`${records.length} rekod`} tone="info" />
-        </div>
-        {records.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Belum ada rekod tanaman. Isi borang di atas dan tekan Simpan rekod tanaman.</p>
-        ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {records.map((record) => (
-              <article key={record.id} className="rounded-lg border border-field-100 bg-field-50 p-4">
-                <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} /></div>
-                <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Umur tanaman (HST): {record.plant_age_days} hari</p>
-                <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => evaluate(record.id)}>{isEvaluating ? "Sedang semak..." : "Semak risiko"}</button>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+      <PlantingRecordList
+        records={records}
+        crops={crops}
+        isEvaluating={isEvaluating}
+        onEvaluate={evaluate}
+        onUpdate={handleUpdatePlantingRecord}
+        onDelete={handleDeletePlantingRecord}
+      />
 
       <section className="grid gap-4 md:grid-cols-2"><ActivitySummary activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
     </div>
   );
 }
 
+function PlantingRecordList({ records, crops, isEvaluating, onEvaluate, onUpdate, onDelete }: { records: PlantingRecord[]; crops: Crop[]; isEvaluating: boolean; onEvaluate: (recordId: number) => void; onUpdate: (recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) => Promise<void>; onDelete: (recordId: number) => Promise<void> }) {
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  function startEdit(record: PlantingRecord) {
+    setOpenMenuId(null);
+    setEditingId(record.id);
+    setEditForm({ crop_id: String(record.crop_id), field_name: record.field_name, planting_date: record.planting_date, area_size: record.area_size ?? "", status: record.status, notes: record.notes ?? "" });
+  }
+
+  async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingId) return;
+    const recordId = editingId;
+    const nextForm = editForm;
+    setEditingId(null);
+    setOpenMenuId(null);
+    setIsSavingEdit(true);
+    try {
+      await onUpdate(recordId, nextForm);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">Senarai rekod tanaman</h3>
+        <StatusBadge label={`${records.length} rekod`} tone="info" />
+      </div>
+      {records.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-600">Belum ada rekod tanaman. Isi borang di atas dan tekan Simpan rekod tanaman.</p>
+      ) : (
+        <div className="mt-4 grid gap-4 md:grid-cols-3">
+          {records.map((record) => (
+            <article key={record.id} className="rounded-lg border border-field-100 bg-field-50 p-4">
+              {editingId === record.id ? (
+                <form onSubmit={submitEdit} className="space-y-2">
+                  <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={editForm.crop_id} onChange={(event) => setEditForm({ ...editForm, crop_id: event.target.value })} required>
+                    <option value="">Pilih tanaman</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
+                  </select>
+                  <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Nama petak / kawasan" value={editForm.field_name} onChange={(event) => setEditForm({ ...editForm, field_name: event.target.value })} required />
+                  <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" type="date" value={editForm.planting_date} onChange={(event) => setEditForm({ ...editForm, planting_date: event.target.value })} required />
+                  <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" inputMode="decimal" placeholder="Luas hektar" value={editForm.area_size} onChange={(event) => setEditForm({ ...editForm, area_size: event.target.value })} />
+                  <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value })}>
+                    <option value="healthy">Sihat</option><option value="watch">Perlu pantau</option><option value="risk">Bermasalah</option><option value="harvested">Sudah dituai</option>
+                  </select>
+                  <textarea className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder="Catatan" value={editForm.notes} onChange={(event) => setEditForm({ ...editForm, notes: event.target.value })} />
+                  <div className="flex gap-2">
+                    <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingEdit}>{isSavingEdit ? "Menyimpan..." : "Simpan"}</button>
+                    <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={() => setEditingId(null)}>Batal</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0"><h3 className="truncate font-semibold">{record.field_name}</h3><p className="mt-2 text-sm text-slate-700">{record.crop.name}</p></div>
+                    <div className="relative flex shrink-0 items-center gap-2">
+                      <StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} />
+                      <button className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" aria-label="Buka menu rekod tanaman" onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
+                      {openMenuId === record.id && (
+                        <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
+                          <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(record)}>Edit rekod</button>
+                          <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(record.id); }}>Padam</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600">Umur tanaman (HST): {record.plant_age_days} hari</p>
+                  <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => onEvaluate(record.id)}>{isEvaluating ? "Sedang semak..." : "Semak risiko"}</button>
+                </>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 function ActivityForm({ records, form, setForm, onSubmit, isSaving }: { records: PlantingRecord[]; form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }; setForm: (form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean }) {
   return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record activity</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Activity type" value={form.activity_type} onChange={(event) => setForm({ ...form, activity_type: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={form.activity_date} onChange={(event) => setForm({ ...form, activity_date: event.target.value })} required /><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost amount" value={form.cost_amount} onChange={(event) => setForm({ ...form, cost_amount: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save activity"}</button></form>;
 }

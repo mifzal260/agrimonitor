@@ -1,11 +1,14 @@
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.activity import Activity
+from app.models.alert import Alert
+from app.models.cost import Cost
 from app.models.crop import Crop
+from app.models.harvest import Harvest
 from app.models.planting_record import PlantingRecord
 from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
@@ -78,6 +81,16 @@ def update_planting_record(db: Session, record: PlantingRecord, payload: Plantin
     db.refresh(record)
     return record
 
+
+
+def delete_planting_record(db: Session, record: PlantingRecord) -> None:
+    db.execute(delete(Alert).where(Alert.planting_record_id == record.id))
+    db.execute(delete(Activity).where(Activity.planting_record_id == record.id))
+    db.execute(delete(SymptomRecord).where(SymptomRecord.planting_record_id == record.id))
+    db.execute(delete(Cost).where(Cost.planting_record_id == record.id))
+    db.execute(delete(Harvest).where(Harvest.planting_record_id == record.id))
+    db.delete(record)
+    db.commit()
 
 def create_activity(db: Session, user_id: int, payload: ActivityCreate) -> Activity:
     get_owned_planting_record(db, payload.planting_record_id, user_id)
