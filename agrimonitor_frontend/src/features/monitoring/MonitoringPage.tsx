@@ -173,7 +173,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           </div>
           <StatusBadge label={`${records.length} plots`} tone="success" />
         </div>
-        {latestRecord && <p className="mt-3 text-sm text-slate-700">Latest: {latestRecord.crop.name} at {latestRecord.field_name}, age {latestRecord.plant_age_days} days.</p>}
+        {latestRecord && <p className="mt-3 text-sm text-slate-700">Latest: {latestRecord.crop.name} at {latestRecord.field_name}, {latestRecord.plant_age_days} HST.</p>}
       </section>
 
       {alerts.length > 0 && (
@@ -218,7 +218,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Plot A atau Batas Cili 1" value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
         </label>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
-          <span>Tarikh tanam</span>
+          <span>Tarikh tanam (HST)</span>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={plantingForm.planting_date} onChange={(event) => setPlantingForm({ ...plantingForm, planting_date: event.target.value })} required />
         </label>
         <div className="grid gap-3 md:grid-cols-2">
@@ -256,7 +256,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
             {records.map((record) => (
               <article key={record.id} className="rounded-lg border border-field-100 bg-field-50 p-4">
                 <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{record.field_name}</h3><StatusBadge label={plantStatusLabel(record.status)} tone={plantStatusTone(record.status)} /></div>
-                <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Umur tanaman: {record.plant_age_days} hari</p>
+                <p className="mt-2 text-sm text-slate-700">{record.crop.name}</p><p className="text-sm text-slate-600">Umur tanaman (HST): {record.plant_age_days} hari</p>
                 <button className="mt-3 w-full rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 disabled:opacity-60" type="button" disabled={isEvaluating} onClick={() => evaluate(record.id)}>{isEvaluating ? "Sedang semak..." : "Semak risiko"}</button>
               </article>
             ))}
