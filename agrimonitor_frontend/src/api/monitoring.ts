@@ -50,6 +50,26 @@ export function createActivity(token: string, payload: {
   });
 }
 
+
+export function updateActivity(token: string, activityId: number, payload: {
+  activity_type?: string;
+  activity_date?: string;
+  description?: string;
+  cost_amount?: string;
+}) {
+  return apiRequest<Activity>(`/monitoring/activities/${activityId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...payload, description: payload.description || null, cost_amount: payload.cost_amount || null }),
+  });
+}
+
+export function deleteActivity(token: string, activityId: number) {
+  return apiRequest<null>(`/monitoring/activities/${activityId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
 export function listSymptomRecords(token: string) {
   return apiRequest<SymptomRecord[]>("/monitoring/symptom-records", { headers: authHeaders(token) });
 }

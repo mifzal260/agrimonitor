@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { createActivity, createPlantingRecord, createSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords } from "../../api/monitoring";
+import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
@@ -37,6 +37,11 @@ function toCurrency(value: string | null) {
 
 function totalActivityCost(activities: Activity[]) {
   return activities.reduce((total, activity) => total + Number(activity.cost_amount ?? 0), 0);
+}
+
+function capitalizeFirst(value: string) {
+  const cleaned = value.trim().replace(/\s+/g, " ").toLowerCase();
+  return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : "";
 }
 
 export function MonitoringPage({ token }: MonitoringPageProps) {
@@ -120,7 +125,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     setSuccessMessage("");
     setIsSavingActivity(true);
     try {
-      const savedActivity = await createActivity(token, { ...activityForm, planting_record_id: Number(activityForm.planting_record_id) });
+      const savedActivity = await createActivity(token, { ...activityForm, activity_type: capitalizeFirst(activityForm.activity_type), planting_record_id: Number(activityForm.planting_record_id) });
       setActivities((currentActivities) => [savedActivity, ...currentActivities.filter((activity) => activity.id !== savedActivity.id)]);
       setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
       setSuccessMessage("Aktiviti ladang berjaya disimpan.");
@@ -128,6 +133,32 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       setError(err instanceof Error ? err.message : "Aktiviti ladang gagal disimpan.");
     } finally {
       setIsSavingActivity(false);
+    }
+  }
+
+  async function handleUpdateActivity(activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string }) {
+    setError("");
+    setSuccessMessage("");
+    try {
+      const updated = await updateActivity(token, activityId, { ...form, activity_type: capitalizeFirst(form.activity_type) });
+      setActivities((currentActivities) => currentActivities.map((activity) => activity.id === updated.id ? updated : activity));
+      setSuccessMessage("Aktiviti ladang berjaya dikemaskini.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Aktiviti ladang gagal dikemaskini.");
+    }
+  }
+
+  async function handleDeleteActivity(activityId: number) {
+    const confirmed = window.confirm("Padam aktiviti ini?");
+    if (!confirmed) return;
+    setError("");
+    setSuccessMessage("");
+    try {
+      await deleteActivity(token, activityId);
+      setActivities((currentActivities) => currentActivities.filter((activity) => activity.id !== activityId));
+      setSuccessMessage("Aktiviti ladang berjaya dipadam.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Aktiviti ladang gagal dipadam.");
     }
   }
 
@@ -273,7 +304,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         )}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary activities={activities} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
+      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
     </div>
   );
 }
@@ -286,8 +317,29 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving }: {
   return <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">Record symptom</h3><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.symptom_id} onChange={(event) => setForm({ ...form, symptom_id: event.target.value })} required><option value="">Select symptom</option>{symptoms.map((symptom) => <option key={symptom.id} value={symptom.id}>{symptom.name}</option>)}</select><select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.severity} onChange={(event) => setForm({ ...form, severity: event.target.value })}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select><input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} /><textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /><button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save symptom"}</button></form>;
 }
 
-function ActivitySummary({ activities }: { activities: Activity[] }) {
+function ActivitySummary({ activities, onUpdate, onDelete }: { activities: Activity[]; onUpdate: (activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string }) => Promise<void>; onDelete: (activityId: number) => Promise<void> }) {
   const totalCost = totalActivityCost(activities);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ activity_type: "", activity_date: "", description: "", cost_amount: "" });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  function startEdit(activity: Activity) {
+    setEditingId(activity.id);
+    setEditForm({ activity_type: activity.activity_type, activity_date: activity.activity_date, description: activity.description ?? "", cost_amount: activity.cost_amount ?? "" });
+  }
+
+  async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingId) return;
+    setIsSavingEdit(true);
+    try {
+      await onUpdate(editingId, editForm);
+      setEditingId(null);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
+
   return (
     <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
@@ -299,9 +351,35 @@ function ActivitySummary({ activities }: { activities: Activity[] }) {
       ) : (
         <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
           {activities.slice(0, 5).map((activity) => (
-            <li key={activity.id} className="flex items-center justify-between gap-3 py-2">
-              <span>{activity.activity_date} - {activity.activity_type}</span>
-              <span className="shrink-0 font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</span>
+            <li key={activity.id} className="py-3">
+              {editingId === activity.id ? (
+                <form onSubmit={submitEdit} className="space-y-2">
+                  <input className="w-full rounded-md border border-slate-300 px-3 py-2" value={editForm.activity_type} onChange={(event) => setEditForm({ ...editForm, activity_type: event.target.value })} required />
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={editForm.activity_date} onChange={(event) => setEditForm({ ...editForm, activity_date: event.target.value })} required />
+                    <input className="rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos" value={editForm.cost_amount} onChange={(event) => setEditForm({ ...editForm, cost_amount: event.target.value })} />
+                  </div>
+                  <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} />
+                  <div className="flex gap-2">
+                    <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingEdit}>{isSavingEdit ? "Menyimpan..." : "Simpan"}</button>
+                    <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={() => setEditingId(null)}>Batal</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p>{activity.activity_date} - {activity.activity_type}</p>
+                    {activity.description && <p className="mt-1 text-xs text-slate-500">{activity.description}</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</p>
+                    <div className="mt-2 flex justify-end gap-2">
+                      <button className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700" type="button" onClick={() => startEdit(activity)}>Edit</button>
+                      <button className="rounded-md border border-red-200 px-2 py-1 text-xs font-semibold text-red-700" type="button" onClick={() => void onDelete(activity.id)}>Padam</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>
