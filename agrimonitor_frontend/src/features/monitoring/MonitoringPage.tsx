@@ -318,8 +318,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
         </label>
         <button className="w-full rounded-md bg-field-700 px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-field-800 disabled:opacity-60" type="submit" disabled={isSavingPlanting}>{isSavingPlanting ? "Sedang menyimpan..." : "Simpan rekod tanaman"}</button>
-        {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{successMessage}</p>}
-        {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
       </form>
 
       {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} isSaving={isSavingActivity} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} isSaving={isSavingSymptom} /></div>}
