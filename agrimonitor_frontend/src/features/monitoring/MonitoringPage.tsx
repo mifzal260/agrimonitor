@@ -325,6 +325,7 @@ function ActivitySummary({ activities, onUpdate, onDelete }: { activities: Activ
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   function startEdit(activity: Activity) {
+    setOpenMenuId(null);
     setEditingId(activity.id);
     setEditForm({ activity_type: activity.activity_type, activity_date: activity.activity_date, description: activity.description ?? "", cost_amount: activity.cost_amount ?? "" });
   }
@@ -332,10 +333,13 @@ function ActivitySummary({ activities, onUpdate, onDelete }: { activities: Activ
   async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingId) return;
+    const activityId = editingId;
+    const nextForm = editForm;
+    setEditingId(null);
+    setOpenMenuId(null);
     setIsSavingEdit(true);
     try {
-      await onUpdate(editingId, editForm);
-      setEditingId(null);
+      await onUpdate(activityId, nextForm);
     } finally {
       setIsSavingEdit(false);
     }
@@ -367,15 +371,12 @@ function ActivitySummary({ activities, onUpdate, onDelete }: { activities: Activ
                   </div>
                 </form>
               ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p>{activity.activity_date} - {activity.activity_type}</p>
-                    {activity.description && <p className="mt-1 text-xs text-slate-500">{activity.description}</p>}
-                  </div>
-                  <div className="relative flex items-start gap-2 text-right">
-                    <p className="font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0"><p className="truncate">{activity.activity_date} - {activity.activity_type}</p>{activity.description && <p className="mt-1 truncate text-xs text-slate-500">{activity.description}</p>}</div>
+                  <div className="relative flex shrink-0 items-center gap-2 text-right">
+                    <p className="whitespace-nowrap font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</p>
                     <button
-                      className="rounded-md px-2 py-1 text-lg font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                       type="button"
                       aria-label="Buka menu aktiviti"
                       onClick={() => setOpenMenuId(openMenuId === activity.id ? null : activity.id)}
@@ -383,9 +384,9 @@ function ActivitySummary({ activities, onUpdate, onDelete }: { activities: Activ
                       ...
                     </button>
                     {openMenuId === activity.id && (
-                      <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-slate-100 bg-white p-2 text-left shadow-lg">
-                        <button className="block w-full rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(activity)}>Edit aktiviti</button>
-                        <button className="block w-full rounded-md px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(activity.id); }}>Padam</button>
+                      <div className="absolute right-0 top-8 z-20 w-36 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
+                        <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(activity)}>Edit aktiviti</button>
+                        <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(activity.id); }}>Padam</button>
                       </div>
                     )}
                   </div>
