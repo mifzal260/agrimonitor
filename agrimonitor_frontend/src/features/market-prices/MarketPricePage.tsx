@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { createMarketPrice, importMarketPricesCsv, listLatestMarketPrices, listMarketPrices } from "../../api/marketPrices";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -10,17 +10,22 @@ type MarketPricePageProps = {
   user: User;
 };
 
+const emptyFilters = { commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" };
+
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [latestPrices, setLatestPrices] = useState<MarketPrice[]>([]);
-  const [filters, setFilters] = useState({ commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" });
+  const [filters, setFilters] = useState(emptyFilters);
   const [form, setForm] = useState({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isFiltering, setIsFiltering] = useState(false);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
+
+  const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
 
   async function loadData() {
     setError("");
@@ -40,7 +45,33 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 
   async function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await loadData();
+    setError("");
+    setMessage("");
+    setIsFiltering(true);
+    try {
+      const priceData = await listMarketPrices(token, filters);
+      setPrices(priceData);
+      setMessage(priceData.length === 0 ? "Tiada harga pasaran dijumpai untuk filter ini." : `${priceData.length} rekod harga pasaran dijumpai.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Filter harga pasaran gagal.");
+    } finally {
+      setIsFiltering(false);
+    }
+  }
+
+  async function resetFilters() {
+    setFilters(emptyFilters);
+    setError("");
+    setMessage("");
+    setIsFiltering(true);
+    try {
+      const priceData = await listMarketPrices(token, emptyFilters);
+      setPrices(priceData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal reset filter harga pasaran.");
+    } finally {
+      setIsFiltering(false);
+    }
   }
 
   async function submitPrice(event: React.FormEvent<HTMLFormElement>) {
@@ -102,14 +133,35 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         </div>
       </section>
 
-      <form onSubmit={applyFilters} className="grid gap-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm md:grid-cols-5">
-        <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Commodity" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
-        <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Location" value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })} />
-        <select className="rounded-md border border-slate-300 px-3 py-2" value={filters.price_type} onChange={(event) => setFilters({ ...filters, price_type: event.target.value })}>
-          <option value="">All types</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option>
-        </select>
-        <input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={filters.date_from} onChange={(event) => setFilters({ ...filters, date_from: event.target.value })} />
-        <button className="rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
+      <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-6">
+          <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
+            <span>Commodity</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Chili" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
+            <span>Location</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Kedah" value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })} />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            <span>Price type</span>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={filters.price_type} onChange={(event) => setFilters({ ...filters, price_type: event.target.value })}>
+              <option value="">All types</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option>
+            </select>
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            <span>From date</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={filters.date_from} onChange={(event) => setFilters({ ...filters, date_from: event.target.value })} />
+          </label>
+          <label className="space-y-1 text-sm font-medium text-slate-700">
+            <span>To date</span>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={filters.date_to} onChange={(event) => setFilters({ ...filters, date_to: event.target.value })} />
+          </label>
+          <div className="flex items-end gap-2">
+            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isFiltering}>{isFiltering ? "Filtering..." : "Filter"}</button>
+            <button className="min-h-10 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>Reset</button>
+          </div>
+        </div>
       </form>
 
       {user.role === "admin" && (
@@ -131,8 +183,18 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         </div>
       )}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {prices.map((price) => <PriceCard key={price.id} price={price} />)}
+      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-semibold">Market price records</h3>
+          <StatusBadge label={`${prices.length} records`} tone="info" />
+        </div>
+        {prices.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">No market prices match this filter. Try clearing one field or press Reset.</p>
+        ) : (
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {prices.map((price) => <PriceCard key={price.id} price={price} />)}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -140,7 +202,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 
 function PriceCard({ price }: { price: MarketPrice }) {
   return (
-    <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+    <article className="rounded-lg border border-field-100 bg-field-50 p-4">
       <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={price.trend} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
       <p className="mt-2 text-2xl font-bold">RM {price.price}</p>
       <p className="text-sm text-slate-600">per {price.unit} - {price.price_type}</p>

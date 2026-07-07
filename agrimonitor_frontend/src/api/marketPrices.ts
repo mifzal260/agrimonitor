@@ -50,7 +50,7 @@ export function createMarketPrice(token: string, payload: MarketPricePayload) {
 }
 
 export async function importMarketPricesCsv(token: string, file: File) {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api/v1";
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (window.location.hostname.includes("onrender.com") ? "https://agrimonitor-backend.onrender.com/api/v1" : "http://localhost:8000/api/v1");
   const formData = new FormData();
   formData.append("file", file);
   const response = await fetch(`${apiBaseUrl}/market-prices/import-csv`, {
@@ -60,7 +60,7 @@ export async function importMarketPricesCsv(token: string, file: File) {
   });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
-    throw new Error(errorBody?.detail ?? "CSV import failed");
+    throw new Error(typeof errorBody?.detail === "string" ? errorBody.detail : "CSV import failed");
   }
   return response.json() as Promise<CsvImportResult>;
 }
