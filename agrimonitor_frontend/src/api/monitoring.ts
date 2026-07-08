@@ -102,6 +102,7 @@ export function createSymptomRecord(token: string, payload: {
   severity: string;
   notes?: string;
   image_url?: string;
+  observed_at: string;
 }) {
   return apiRequest<SymptomRecord>("/monitoring/symptom-records", {
     method: "POST",
@@ -110,7 +111,7 @@ export function createSymptomRecord(token: string, payload: {
       ...payload,
       notes: payload.notes || null,
       image_url: payload.image_url || null,
-      observed_at: new Date().toISOString(),
+      observed_at: payload.observed_at,
     }),
   });
 }
