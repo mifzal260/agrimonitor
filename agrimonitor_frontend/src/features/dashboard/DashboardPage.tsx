@@ -25,15 +25,6 @@ function statusTone(status: string): "success" | "warning" {
   return status === "risk" || status === "watch" ? "warning" : "success";
 }
 
-function symptomStatusLabel(status: string) {
-  if (status === "monitoring") return "Dipantau";
-  if (status === "resolved") return "Selesai";
-  return "Aktif";
-}
-
-function symptomStatusTone(status: string): "success" | "warning" {
-  return status === "resolved" ? "success" : "warning";
-}
 function severityLabel(severity: string) {
   const labels: Record<string, string> = {
     low: "Rendah",
@@ -41,10 +32,6 @@ function severityLabel(severity: string) {
     high: "Tinggi",
   };
   return labels[severity] ?? severity;
-}
-
-function severityTone(severity: string): "info" | "warning" {
-  return severity === "high" || severity === "medium" ? "warning" : "info";
 }
 
 export function DashboardPage({ token }: DashboardPageProps) {
@@ -74,20 +61,17 @@ export function DashboardPage({ token }: DashboardPageProps) {
     }));
   }, [summary]);
 
-  const recentSymptoms = useMemo(() => {
-    return symptomRecords.filter((symptom) => symptom.status !== "resolved").slice(0, 5).map((symptom) => {
-      const record = records.find((item) => item.id === symptom.planting_record_id);
-      return {
-        ...symptom,
-        plotName: record?.field_name ?? "Plot tidak dijumpai",
-        cropName: record?.crop.name ?? "Tanaman",
-      };
+  const plotMonitoring = useMemo(() => {
+    return records.map((record) => {
+      const activeSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id === record.id && symptom.status !== "resolved");
+      const latestActiveSymptom = activeSymptoms[0];
+      return { record, activeSymptoms, latestActiveSymptom };
     });
   }, [records, symptomRecords]);
 
-  const activeSymptomCount = symptomRecords.filter((item) => item.status !== "resolved").length;
-  const resolvedSymptomCount = symptomRecords.filter((item) => item.status === "resolved").length;
-
+  const healthyPlotCount = records.filter((record) => record.status === "healthy").length;
+  const watchPlotCount = records.filter((record) => record.status === "watch").length;
+  const riskPlotCount = records.filter((record) => record.status === "risk").length;
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading dashboard...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
   if (!summary) return null;
@@ -146,24 +130,28 @@ export function DashboardPage({ token }: DashboardPageProps) {
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Simptom terbaru</h2>
-            <p className="mt-1 text-sm text-slate-600">Ringkasan masalah tanaman yang baru direkodkan.</p>
+            <h2 className="text-lg font-semibold">Pemantauan plot</h2>
+            <p className="mt-1 text-sm text-slate-600">Status plot ikut rekod tanaman: Sihat, Perlu pantau, atau Bermasalah.</p>
           </div>
-          <div className="flex items-center gap-2"><StatusBadge label={`${activeSymptomCount} aktif`} tone={symptomRecords.some((item) => item.status !== "resolved" && item.severity === "high") ? "warning" : "info"} /><StatusBadge label={`${resolvedSymptomCount} selesai`} tone="success" /></div>
+          <div className="flex items-center gap-2"><StatusBadge label={`${healthyPlotCount} sihat`} tone="success" /><StatusBadge label={`${watchPlotCount} pantau`} tone={watchPlotCount > 0 || riskPlotCount > 0 ? "warning" : "info"} /></div>
         </div>
-        {recentSymptoms.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Tiada simptom aktif direkodkan.</p>
+        {plotMonitoring.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">Belum ada plot direkodkan.</p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {recentSymptoms.map((item) => (
-              <article key={item.id} className="rounded-lg border border-field-100 bg-field-50 p-3 text-sm">
+            {plotMonitoring.map(({ record, activeSymptoms, latestActiveSymptom }) => (
+              <article key={record.id} className="rounded-lg border border-field-100 bg-field-50 p-3 text-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-semibold text-slate-950">{item.plotName} - {item.cropName}</p>
-                    <p className="mt-1 text-slate-700">{item.symptom.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{new Date(item.observed_at).toLocaleDateString()} - Tahap: {severityLabel(item.severity)}</p>
+                    <p className="font-semibold text-slate-950">{record.field_name} - {record.crop.name}</p>
+                    {latestActiveSymptom ? (
+                      <p className="mt-1 text-slate-700">{latestActiveSymptom.symptom.name} <span className="text-xs text-slate-500">({severityLabel(latestActiveSymptom.severity)})</span></p>
+                    ) : (
+                      <p className="mt-1 text-slate-700">Tiada simptom aktif</p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">{activeSymptoms.length} simptom aktif</p>
                   </div>
-                  <StatusBadge label={symptomStatusLabel(item.status)} tone={symptomStatusTone(item.status)} />
+                  <StatusBadge label={statusLabel(record.status)} tone={statusTone(record.status)} />
                 </div>
               </article>
             ))}
