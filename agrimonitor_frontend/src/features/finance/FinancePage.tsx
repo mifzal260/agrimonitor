@@ -1,37 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { createCost, createHarvest, getFinanceSummary, listCosts, listHarvests } from "../../api/finance";
-import { listPlantingRecords } from "../../api/monitoring";
+import { createHarvest, listHarvests } from "../../api/finance";
+import { listActivities, listPlantingRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
-import type { Cost, Harvest, ProfitLossSummary } from "../../types/finance";
-import type { PlantingRecord } from "../../types/monitoring";
+import type { Harvest } from "../../types/finance";
+import type { Activity, PlantingRecord } from "../../types/monitoring";
 
 type FinancePageProps = { token: string };
 
 export function FinancePage({ token }: FinancePageProps) {
   const [records, setRecords] = useState<PlantingRecord[]>([]);
-  const [costs, setCosts] = useState<Cost[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
-  const [summary, setSummary] = useState<ProfitLossSummary | null>(null);
+  const [selectedRecordId, setSelectedRecordId] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingCost, setIsSavingCost] = useState(false);
   const [isSavingHarvest, setIsSavingHarvest] = useState(false);
-  const [costForm, setCostForm] = useState({ planting_record_id: "", cost_type: "", amount: "", cost_date: "", notes: "" });
-  const [harvestForm, setHarvestForm] = useState({ planting_record_id: "", harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
+  const [harvestForm, setHarvestForm] = useState({ harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
 
   async function loadData() {
     setError("");
     setIsLoading(true);
     try {
-      const [recordData, costData, harvestData, summaryData] = await Promise.all([
-        listPlantingRecords(token), listCosts(token), listHarvests(token), getFinanceSummary(token),
+      const [recordData, activityData, harvestData] = await Promise.all([
+        listPlantingRecords(token),
+        listActivities(token),
+        listHarvests(token),
       ]);
       setRecords(recordData);
-      setCosts(costData);
+      setActivities(activityData);
       setHarvests(harvestData);
-      setSummary(summaryData);
+      setSelectedRecordId((currentId) => currentId || String(recordData[0]?.id ?? ""));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load finance data");
     } finally {
@@ -39,37 +39,42 @@ export function FinancePage({ token }: FinancePageProps) {
     }
   }
 
-  useEffect(() => { void loadData(); }, [token]);
+  useEffect(() => {
+    void loadData();
+  }, [token]);
 
-  async function submitCost(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setSuccessMessage("");
-    setIsSavingCost(true);
-    try {
-      const savedCost = await createCost(token, { ...costForm, planting_record_id: Number(costForm.planting_record_id) });
-      setCosts((currentCosts) => [savedCost, ...currentCosts.filter((cost) => cost.id !== savedCost.id)]);
-      setCostForm({ planting_record_id: "", cost_type: "", amount: "", cost_date: "", notes: "" });
-      setSummary(await getFinanceSummary(token));
-      setSuccessMessage("Kos berjaya disimpan.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Kos gagal disimpan.");
-    } finally {
-      setIsSavingCost(false);
-    }
-  }
+  const selectedRecord = records.find((record) => String(record.id) === selectedRecordId) ?? null;
+  const selectedActivities = useMemo(
+    () => activities.filter((activity) => String(activity.planting_record_id) === selectedRecordId),
+    [activities, selectedRecordId],
+  );
+  const selectedHarvests = useMemo(
+    () => harvests.filter((harvest) => String(harvest.planting_record_id) === selectedRecordId),
+    [harvests, selectedRecordId],
+  );
+
+  const totalCost = selectedActivities.reduce((total, activity) => total + toNumber(activity.cost_amount), 0);
+  const totalRevenue = selectedHarvests.reduce((total, harvest) => total + toNumber(harvest.revenue), 0);
+  const profitLoss = totalRevenue - totalCost;
 
   async function submitHarvest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!selectedRecordId) {
+      setError("Pilih plot dahulu sebelum simpan hasil tuaian.");
+      return;
+    }
+
     setError("");
     setSuccessMessage("");
     setIsSavingHarvest(true);
     try {
-      const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(harvestForm.planting_record_id) });
+      const savedHarvest = await createHarvest(token, {
+        ...harvestForm,
+        planting_record_id: Number(selectedRecordId),
+      });
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
-      setHarvestForm({ planting_record_id: "", harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
-      setSummary(await getFinanceSummary(token));
-      setSuccessMessage("Hasil tuaian berjaya disimpan.");
+      setHarvestForm({ harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" });
+      setSuccessMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal disimpan.");
     } finally {
@@ -83,48 +88,119 @@ export function FinancePage({ token }: FinancePageProps) {
     <div className="space-y-5">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>}
-      <section className="grid gap-3 md:grid-cols-3">
-        <SummaryCard label="Total Cost" value={`RM ${summary?.total_cost ?? "0"}`} tone="warning" />
-        <SummaryCard label="Revenue" value={`RM ${summary?.total_revenue ?? "0"}`} tone="success" />
-        <SummaryCard label="Profit/Loss" value={`RM ${summary?.profit_loss ?? "0"}`} tone={Number(summary?.profit_loss ?? 0) >= 0 ? "success" : "warning"} />
+
+      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+          <label className="space-y-1 text-sm font-semibold text-slate-800">
+            <span>Pilih plot untuk kira kos dan hasil</span>
+            <PlotSelect records={records} value={selectedRecordId} onChange={setSelectedRecordId} />
+          </label>
+          <div className="rounded-md bg-field-50 px-3 py-2 text-sm text-slate-700">
+            {selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : "Tiada plot dipilih"}
+          </div>
+        </div>
       </section>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <form onSubmit={submitCost} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Record cost</h2>
-          <PlotSelect records={records} value={costForm.planting_record_id} onChange={(value) => setCostForm({ ...costForm, planting_record_id: value })} />
-          <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost type" value={costForm.cost_type} onChange={(event) => setCostForm({ ...costForm, cost_type: event.target.value })} required />
-          <div className="grid grid-cols-2 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Amount" value={costForm.amount} onChange={(event) => setCostForm({ ...costForm, amount: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={costForm.cost_date} onChange={(event) => setCostForm({ ...costForm, cost_date: event.target.value })} required /></div>
-          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={costForm.notes} onChange={(event) => setCostForm({ ...costForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingCost}>{isSavingCost ? "Saving..." : "Save cost"}</button>
-        </form>
+      <section className="grid gap-3 md:grid-cols-3">
+        <SummaryCard label="Total Cost" value={formatCurrency(totalCost)} tone="warning" />
+        <SummaryCard label="Revenue" value={formatCurrency(totalRevenue)} tone="success" />
+        <SummaryCard label="Profit/Loss" value={formatCurrency(profitLoss)} tone={profitLoss >= 0 ? "success" : "warning"} />
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Kos aktiviti dari Crop Monitoring</h2>
+              <p className="mt-1 text-sm text-slate-600">Kos diambil terus daripada aktiviti ladang untuk plot yang dipilih.</p>
+            </div>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
+              {formatCurrency(totalCost)}
+            </span>
+          </div>
+
+          {selectedActivities.length === 0 ? (
+            <p className="mt-4 text-sm text-slate-600">Belum ada aktiviti untuk plot ini.</p>
+          ) : (
+            <ul className="mt-4 divide-y divide-slate-100 text-sm">
+              {selectedActivities.slice(0, 8).map((activity) => (
+                <li key={activity.id} className="flex items-center justify-between gap-3 py-3">
+                  <span>
+                    <span className="font-medium text-slate-900">{activity.activity_date} - {activity.activity_type}</span>
+                    {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
+                  </span>
+                  <span className="shrink-0 font-semibold text-slate-950">{formatCurrency(toNumber(activity.cost_amount))}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Record harvest</h2>
-          <PlotSelect records={records} value={harvestForm.planting_record_id} onChange={(value) => setHarvestForm({ ...harvestForm, planting_record_id: value })} />
+          <div>
+            <h2 className="text-lg font-semibold">Rekod hasil tuaian</h2>
+            <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti untuk untung/rugi plot yang dipilih.</p>
+          </div>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
-          <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Quantity" value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={harvestForm.unit} onChange={(event) => setHarvestForm({ ...harvestForm, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required /></div>
-          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest}>{isSavingHarvest ? "Saving..." : "Save harvest"}</button>
+          <div className="grid grid-cols-3 gap-3">
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Kuantiti" value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required />
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={harvestForm.unit} onChange={(event) => setHarvestForm({ ...harvestForm, unit: event.target.value })} required />
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required />
+          </div>
+          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
+          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId}>
+            {isSavingHarvest ? "Saving..." : "Save harvest"}
+          </button>
         </form>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <List title="Recent costs" items={costs.map((item) => `${item.cost_date} - ${item.cost_type}: RM ${item.amount}`)} />
-        <List title="Recent harvests" items={harvests.map((item) => `${item.harvest_date} - ${item.quantity} ${item.unit}: RM ${item.revenue}`)} />
+      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="font-semibold">Hasil tuaian plot dipilih</h3>
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+            {formatCurrency(totalRevenue)}
+          </span>
+        </div>
+        {selectedHarvests.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">Belum ada hasil tuaian untuk plot ini.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-100 text-sm">
+            {selectedHarvests.slice(0, 8).map((harvest) => (
+              <li key={harvest.id} className="flex items-center justify-between gap-3 py-3">
+                <span>
+                  <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
+                  <span className="block text-xs text-slate-500">Harga/unit: RM {harvest.selling_price_per_unit}</span>
+                </span>
+                <span className="shrink-0 font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );
 }
 
 function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; value: string; onChange: (value: string) => void }) {
-  return <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)} required><option value="">Select plot</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}</select>;
+  return (
+    <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
+      <option value="">Select plot</option>
+      {records.map((record) => (
+        <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+      ))}
+    </select>
+  );
 }
 
 function SummaryCard({ label, value, tone }: { label: string; value: string; tone: "info" | "success" | "warning" }) {
   return <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-slate-600">{label}</p><StatusBadge label={tone} tone={tone} /></div><p className="mt-3 text-2xl font-bold text-slate-950">{value}</p></article>;
 }
 
-function List({ title, items }: { title: string; items: string[] }) {
-  return <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">{title}</h3>{items.length === 0 ? <p className="mt-2 text-sm text-slate-600">No records yet.</p> : <ul className="mt-3 space-y-2 text-sm text-slate-700">{items.slice(0, 6).map((item) => <li key={item}>{item}</li>)}</ul>}</div>;
+function toNumber(value: string | null | undefined) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCurrency(value: number) {
+  return `RM ${value.toFixed(2)}`;
 }
