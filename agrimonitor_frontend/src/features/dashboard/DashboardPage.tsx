@@ -25,6 +25,15 @@ function statusTone(status: string): "success" | "warning" {
   return status === "risk" || status === "watch" ? "warning" : "success";
 }
 
+function symptomStatusLabel(status: string) {
+  if (status === "monitoring") return "Dipantau";
+  if (status === "resolved") return "Selesai";
+  return "Aktif";
+}
+
+function symptomStatusTone(status: string): "success" | "warning" {
+  return status === "resolved" ? "success" : "warning";
+}
 function severityLabel(severity: string) {
   const labels: Record<string, string> = {
     low: "Rendah",
@@ -152,9 +161,9 @@ export function DashboardPage({ token }: DashboardPageProps) {
                   <div>
                     <p className="font-semibold text-slate-950">{item.plotName} - {item.cropName}</p>
                     <p className="mt-1 text-slate-700">{item.symptom.name}</p>
-                    <p className="mt-1 text-xs text-slate-500">{new Date(item.observed_at).toLocaleDateString()}</p>
+                    <p className="mt-1 text-xs text-slate-500">{new Date(item.observed_at).toLocaleDateString()} - Tahap: {severityLabel(item.severity)}</p>
                   </div>
-                  <StatusBadge label={severityLabel(item.severity)} tone={severityTone(item.severity)} />
+                  <StatusBadge label={symptomStatusLabel(item.status)} tone={symptomStatusTone(item.status)} />
                 </div>
               </article>
             ))}
