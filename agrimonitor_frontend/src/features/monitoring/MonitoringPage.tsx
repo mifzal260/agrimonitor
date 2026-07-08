@@ -79,6 +79,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [isSavingSymptom, setIsSavingSymptom] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [activitySaveMessage, setActivitySaveMessage] = useState("");
+  const [symptomSaveMessage, setSymptomSaveMessage] = useState("");
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
@@ -236,7 +237,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       });
       setSymptomRecords((currentRecords) => [saved, ...currentRecords.filter((record) => record.id !== saved.id)]);
       setSymptomForm({ planting_record_id: "", symptom_id: "", severity: "low", observed_at: "", notes: "", image_url: "" });
-      setSuccessMessage("Pemerhatian simptom berjaya disimpan.");
+      setSymptomSaveMessage("Maklumat simptom berjaya direkodkan dan sudah masuk dalam senarai masalah tanaman.");
       await evaluate(saved.planting_record_id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pemerhatian simptom gagal disimpan.");
@@ -341,7 +342,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         <button className="w-full rounded-md bg-field-700 px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-field-800 disabled:opacity-60" type="submit" disabled={isSavingPlanting}>{isSavingPlanting ? "Sedang menyimpan..." : "Simpan rekod tanaman"}</button>
       </form>
 
-      {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} isSaving={isSavingActivity} saveMessage={activitySaveMessage} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} isSaving={isSavingSymptom} /></div>}
+      {hasRecords && <div className="grid gap-5 md:grid-cols-2"><ActivityForm records={records} form={activityForm} setForm={setActivityForm} onSubmit={submitActivity} isSaving={isSavingActivity} saveMessage={activitySaveMessage} /><SymptomForm records={records} symptoms={symptoms} form={symptomForm} setForm={setSymptomForm} onSubmit={submitSymptom} isSaving={isSavingSymptom} saveMessage={symptomSaveMessage} /></div>}
 
       <PlantingRecordList
         records={records}
@@ -452,7 +453,7 @@ function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage 
     </form>
   );
 }
-function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; severity: string; observed_at: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; severity: string; observed_at: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean }) {
+function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, saveMessage }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; severity: string; observed_at: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; severity: string; observed_at: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean; saveMessage: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <h3 className="font-semibold">Record symptom</h3>
@@ -477,6 +478,7 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving }: {
       <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} />
       <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Notes" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
       <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save symptom"}</button>
+      {saveMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{saveMessage}</p>}
     </form>
   );
 }
