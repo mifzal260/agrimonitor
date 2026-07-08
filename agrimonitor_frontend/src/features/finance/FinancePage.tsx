@@ -87,7 +87,6 @@ export function FinancePage({ token }: FinancePageProps) {
   return (
     <div className="space-y-5">
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-      {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>}
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
@@ -151,6 +150,7 @@ export function FinancePage({ token }: FinancePageProps) {
           <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId}>
             {isSavingHarvest ? "Saving..." : "Save harvest"}
           </button>
+          {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{successMessage}</p>}
         </form>
       </div>
 
@@ -204,3 +204,5 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
+
+
