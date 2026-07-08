@@ -2,21 +2,56 @@ import { useEffect, useMemo, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { getDashboardSummary } from "../../api/dashboard";
+import { listPlantingRecords, listSymptomRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { DashboardSummary } from "../../types/dashboard";
+import type { PlantingRecord, SymptomRecord } from "../../types/monitoring";
 
 type DashboardPageProps = {
   token: string;
 };
 
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    healthy: "Sihat",
+    watch: "Perlu pantau",
+    risk: "Bermasalah",
+    harvested: "Sudah dituai",
+  };
+  return labels[status] ?? status;
+}
+
+function statusTone(status: string): "success" | "warning" {
+  return status === "risk" || status === "watch" ? "warning" : "success";
+}
+
+function severityLabel(severity: string) {
+  const labels: Record<string, string> = {
+    low: "Rendah",
+    medium: "Sederhana",
+    high: "Tinggi",
+  };
+  return labels[severity] ?? severity;
+}
+
+function severityTone(severity: string): "info" | "warning" {
+  return severity === "high" || severity === "medium" ? "warning" : "info";
+}
+
 export function DashboardPage({ token }: DashboardPageProps) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [records, setRecords] = useState<PlantingRecord[]>([]);
+  const [symptomRecords, setSymptomRecords] = useState<SymptomRecord[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    getDashboardSummary(token)
-      .then(setSummary)
+    Promise.all([getDashboardSummary(token), listPlantingRecords(token), listSymptomRecords(token)])
+      .then(([summaryData, recordData, symptomData]) => {
+        setSummary(summaryData);
+        setRecords(recordData);
+        setSymptomRecords(symptomData);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard"))
       .finally(() => setIsLoading(false));
   }, [token]);
@@ -29,6 +64,17 @@ export function DashboardPage({ token }: DashboardPageProps) {
       price: Number(point.price),
     }));
   }, [summary]);
+
+  const recentSymptoms = useMemo(() => {
+    return symptomRecords.slice(0, 5).map((symptom) => {
+      const record = records.find((item) => item.id === symptom.planting_record_id);
+      return {
+        ...symptom,
+        plotName: record?.field_name ?? "Plot tidak dijumpai",
+        cropName: record?.crop.name ?? "Tanaman",
+      };
+    });
+  }, [records, symptomRecords]);
 
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading dashboard...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
@@ -73,8 +119,8 @@ export function DashboardPage({ token }: DashboardPageProps) {
           <div className="mt-4 space-y-3">
             {summary.crop_status.length === 0 ? <p className="text-sm text-slate-600">No planting records yet.</p> : summary.crop_status.map((item) => (
               <div key={item.status} className="flex items-center justify-between gap-3 text-sm">
-                <span className="capitalize text-slate-700">{item.status}</span>
-                <StatusBadge label={item.count.toString()} tone={item.status === "risk" ? "warning" : "success"} />
+                <span className="text-slate-700">{statusLabel(item.status)}</span>
+                <StatusBadge label={item.count.toString()} tone={statusTone(item.status)} />
               </div>
             ))}
           </div>
@@ -83,6 +129,34 @@ export function DashboardPage({ token }: DashboardPageProps) {
             <p>Total revenue: RM {summary.total_revenue}</p>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Simptom terbaru</h2>
+            <p className="mt-1 text-sm text-slate-600">Ringkasan masalah tanaman yang baru direkodkan.</p>
+          </div>
+          <StatusBadge label={`${symptomRecords.length} rekod`} tone={symptomRecords.some((item) => item.severity === "high") ? "warning" : "info"} />
+        </div>
+        {recentSymptoms.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">Belum ada simptom direkodkan.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {recentSymptoms.map((item) => (
+              <article key={item.id} className="rounded-lg border border-field-100 bg-field-50 p-3 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-950">{item.plotName} - {item.cropName}</p>
+                    <p className="mt-1 text-slate-700">{item.symptom.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{new Date(item.observed_at).toLocaleDateString()}</p>
+                  </div>
+                  <StatusBadge label={severityLabel(item.severity)} tone={severityTone(item.severity)} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -30,6 +30,25 @@ function plantStatusTone(status: string): "success" | "warning" {
   return status === "risk" || status === "watch" ? "warning" : "success";
 }
 
+function severityLabel(severity: string) {
+  const labels: Record<string, string> = {
+    low: "Rendah",
+    medium: "Sederhana",
+    high: "Tinggi",
+  };
+  return labels[severity] ?? severity;
+}
+
+function severityTone(severity: string): "info" | "success" | "warning" {
+  if (severity === "high" || severity === "medium") return "warning";
+  return "info";
+}
+
+function symptomActionText(severity: string) {
+  if (severity === "high") return "Perlu tindakan segera. Semak tanaman dan buat rawatan awal.";
+  if (severity === "medium") return "Perlu pantau rapat. Ulang semakan dalam 1-2 hari.";
+  return "Pantau dahulu. Rekod semula jika keadaan bertambah teruk.";
+}
 function toCurrency(value: string | null) {
   const amount = Number(value ?? 0);
   return `RM ${amount.toFixed(2)}`;
@@ -330,7 +349,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         onDelete={handleDeletePlantingRecord}
       />
 
-      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary records={records} activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><List title="Recent symptoms" items={symptomRecords.map((item) => `${item.symptom.name} - ${item.severity}`)} /></section>
+      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary records={records} activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><SymptomSummary records={records} symptomRecords={symptomRecords} /></section>
     </div>
   );
 }
@@ -549,6 +568,66 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
     </div>
   );
 }
-function List({ title, items }: { title: string; items: string[] }) {
-  return <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><h3 className="font-semibold">{title}</h3>{items.length === 0 ? <p className="mt-2 text-sm text-slate-600">No records yet.</p> : <ul className="mt-3 space-y-2 text-sm text-slate-700">{items.slice(0, 5).map((item) => <li key={item}>{item}</li>)}</ul>}</div>;
+function SymptomSummary({ records, symptomRecords }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[] }) {
+  const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id))?.id.toString() ?? "");
+  const recordsWithSymptoms = records.filter((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id));
+  const selectedRecord = records.find((record) => record.id.toString() === selectedRecordId);
+  const selectedSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id.toString() === selectedRecordId);
+  const highCount = symptomRecords.filter((symptom) => symptom.severity === "high").length;
+  const mediumCount = symptomRecords.filter((symptom) => symptom.severity === "medium").length;
+
+  useEffect(() => {
+    if (!selectedRecordId && recordsWithSymptoms.length > 0) setSelectedRecordId(recordsWithSymptoms[0].id.toString());
+  }, [recordsWithSymptoms, selectedRecordId]);
+
+  return (
+    <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">Masalah tanaman mengikut plot</h3>
+          <p className="mt-1 text-xs text-slate-500">Pilih plot untuk lihat simptom dan tindakan awal.</p>
+        </div>
+        <StatusBadge label={`${symptomRecords.length} simptom`} tone={highCount > 0 || mediumCount > 0 ? "warning" : "info"} />
+      </div>
+
+      {recordsWithSymptoms.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-600">Belum ada simptom direkodkan.</p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => setSelectedRecordId(event.target.value)}>
+              {recordsWithSymptoms.map((record) => (
+                <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+              ))}
+            </select>
+            <div className="flex items-center gap-2">
+              <StatusBadge label={`${selectedSymptoms.length} rekod`} tone="info" />
+              <StatusBadge label={`${highCount} tinggi`} tone={highCount > 0 ? "warning" : "success"} />
+            </div>
+          </div>
+
+          {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({selectedRecord.crop.name})</span></p>}
+
+          {selectedSymptoms.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-600">Tiada simptom untuk plot ini.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
+              {selectedSymptoms.slice(0, 8).map((record) => (
+                <li key={record.id} className="py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-slate-950">{record.symptom.name}</p>
+                      <p className="mt-1 text-xs text-slate-500">{new Date(record.observed_at).toLocaleDateString()} - {symptomActionText(record.severity)}</p>
+                      {record.notes && <p className="mt-1 text-xs text-slate-500">Catatan: {record.notes}</p>}
+                    </div>
+                    <StatusBadge label={severityLabel(record.severity)} tone={severityTone(record.severity)} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
