@@ -110,6 +110,10 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
   useEffect(() => { void loadData(); }, [token]);
 
+
+  async function refreshPlantingRecords() {
+    setRecords(await listPlantingRecords(token));
+  }
   async function submitPlantingRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -239,6 +243,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       setSymptomForm({ planting_record_id: "", symptom_id: "", severity: "low", observed_at: "", notes: "", image_url: "" });
       setSymptomSaveMessage("Maklumat simptom berjaya direkodkan dan sudah masuk dalam senarai masalah tanaman.");
       await evaluate(saved.planting_record_id);
+      await refreshPlantingRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Pemerhatian simptom gagal disimpan.");
     } finally {
@@ -260,6 +265,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         resolved_at: form.resolved_at ?? null,
       });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      await refreshPlantingRecords();
       setSuccessMessage("Rekod simptom berjaya dikemaskini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rekod simptom gagal dikemaskini.");
@@ -272,6 +278,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       const updated = await updateSymptomRecord(token, symptomRecordId, { status: "resolved", resolved_at: new Date().toISOString() });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      await refreshPlantingRecords();
       setSuccessMessage("Simptom berjaya ditandakan selesai.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simptom gagal ditandakan selesai.");
@@ -286,6 +293,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       await deleteSymptomRecord(token, symptomRecordId);
       setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== symptomRecordId));
+      await refreshPlantingRecords();
       setSuccessMessage("Rekod simptom berjaya dipadam.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rekod simptom gagal dipadam.");

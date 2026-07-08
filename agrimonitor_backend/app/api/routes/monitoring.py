@@ -11,7 +11,7 @@ from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
 from app.models.user import User
 from app.schemas.monitoring import ActivityCreate, ActivityRead, ActivityUpdate, CropRead, PlantingRecordCreate, PlantingRecordRead, PlantingRecordUpdate, SymptomRead, SymptomRecordCreate, SymptomRecordRead, SymptomRecordUpdate
-from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, update_symptom_record
+from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, sync_planting_record_status_from_symptoms, update_symptom_record
 
 router = APIRouter()
 
@@ -129,6 +129,9 @@ def update_observation(symptom_record_id: int, payload: SymptomRecordUpdate, db:
 @router.delete("/symptom-records/{symptom_record_id}", status_code=204)
 def delete_observation(symptom_record_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Response:
     record = get_owned_symptom_record(db, symptom_record_id, current_user.id)
+    planting_record_id = record.planting_record_id
     db.delete(record)
+    db.flush()
+    sync_planting_record_status_from_symptoms(db, planting_record_id)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

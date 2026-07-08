@@ -109,11 +109,34 @@ def update_activity(db: Session, activity: Activity, payload: ActivityUpdate) ->
     return activity
 
 
+
+def sync_planting_record_status_from_symptoms(db: Session, planting_record_id: int) -> None:
+    planting_record = db.get(PlantingRecord, planting_record_id)
+    if planting_record is None or planting_record.status == "harvested":
+        return
+
+    active_severities = list(
+        db.scalars(
+            select(SymptomRecord.severity).where(
+                SymptomRecord.planting_record_id == planting_record_id,
+                SymptomRecord.status != "resolved",
+            )
+        ).all()
+    )
+    if not active_severities:
+        planting_record.status = "healthy"
+    elif "high" in active_severities:
+        planting_record.status = "risk"
+    else:
+        planting_record.status = "watch"
+
 def create_symptom_record(db: Session, user_id: int, payload: SymptomRecordCreate) -> SymptomRecord:
     get_owned_planting_record(db, payload.planting_record_id, user_id)
     get_symptom_or_404(db, payload.symptom_id)
     record = SymptomRecord(user_id=user_id, **payload.model_dump())
     db.add(record)
+    db.flush()
+    sync_planting_record_status_from_symptoms(db, payload.planting_record_id)
     db.commit()
     db.refresh(record)
     return get_owned_symptom_record(db, record.id, user_id)
@@ -122,22 +145,8 @@ def create_symptom_record(db: Session, user_id: int, payload: SymptomRecordCreat
 def update_symptom_record(db: Session, record: SymptomRecord, payload: SymptomRecordUpdate) -> SymptomRecord:
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(record, key, value)
-
-    active_count = db.scalar(
-        select(SymptomRecord)
-        .where(
-            SymptomRecord.planting_record_id == record.planting_record_id,
-            SymptomRecord.user_id == record.user_id,
-            SymptomRecord.status != "resolved",
-            SymptomRecord.id != record.id,
-        )
-        .limit(1)
-    )
-    if record.status == "resolved" and active_count is None:
-        planting_record = db.get(PlantingRecord, record.planting_record_id)
-        if planting_record is not None and planting_record.status != "harvested":
-            planting_record.status = "healthy"
-
+    db.flush()
+    sync_planting_record_status_from_symptoms(db, record.planting_record_id)
     db.commit()
     db.refresh(record)
     return record
