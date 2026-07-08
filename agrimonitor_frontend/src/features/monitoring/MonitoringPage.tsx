@@ -169,7 +169,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       const savedActivity = await createActivity(token, { ...activityForm, activity_type: capitalizeFirst(activityForm.activity_type), planting_record_id: Number(activityForm.planting_record_id) });
       setActivities((currentActivities) => [savedActivity, ...currentActivities.filter((activity) => activity.id !== savedActivity.id)]);
       setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
-      setSuccessMessage("Aktiviti ladang berjaya disimpan.");
       setActivitySaveMessage("Maklumat aktiviti berjaya disimpan dan sudah masuk dalam senarai aktiviti.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Aktiviti ladang gagal disimpan.");
