@@ -32,3 +32,18 @@ export function createHarvest(token: string, payload: { planting_record_id: numb
     body: JSON.stringify({ ...payload, notes: payload.notes || null }),
   });
 }
+
+export function updateHarvest(token: string, harvestId: number, payload: { harvest_date?: string; quantity?: string; unit?: string; selling_price_per_unit?: string; notes?: string }) {
+  return apiRequest<Harvest>(`/finance/harvests/${harvestId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...payload, notes: payload.notes || null }),
+  });
+}
+
+export function deleteHarvest(token: string, harvestId: number) {
+  return apiRequest<null>(`/finance/harvests/${harvestId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}
