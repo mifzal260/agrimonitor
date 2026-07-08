@@ -66,7 +66,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
   }, [summary]);
 
   const recentSymptoms = useMemo(() => {
-    return symptomRecords.slice(0, 5).map((symptom) => {
+    return symptomRecords.filter((symptom) => symptom.status !== "resolved").slice(0, 5).map((symptom) => {
       const record = records.find((item) => item.id === symptom.planting_record_id);
       return {
         ...symptom,
@@ -75,6 +75,9 @@ export function DashboardPage({ token }: DashboardPageProps) {
       };
     });
   }, [records, symptomRecords]);
+
+  const activeSymptomCount = symptomRecords.filter((item) => item.status !== "resolved").length;
+  const resolvedSymptomCount = symptomRecords.filter((item) => item.status === "resolved").length;
 
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading dashboard...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
@@ -137,10 +140,10 @@ export function DashboardPage({ token }: DashboardPageProps) {
             <h2 className="text-lg font-semibold">Simptom terbaru</h2>
             <p className="mt-1 text-sm text-slate-600">Ringkasan masalah tanaman yang baru direkodkan.</p>
           </div>
-          <StatusBadge label={`${symptomRecords.length} rekod`} tone={symptomRecords.some((item) => item.severity === "high") ? "warning" : "info"} />
+          <div className="flex items-center gap-2"><StatusBadge label={`${activeSymptomCount} aktif`} tone={symptomRecords.some((item) => item.status !== "resolved" && item.severity === "high") ? "warning" : "info"} /><StatusBadge label={`${resolvedSymptomCount} selesai`} tone="success" /></div>
         </div>
         {recentSymptoms.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Belum ada simptom direkodkan.</p>
+          <p className="mt-3 text-sm text-slate-600">Tiada simptom aktif direkodkan.</p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {recentSymptoms.map((item) => (

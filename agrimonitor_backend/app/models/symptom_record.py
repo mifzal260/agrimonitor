@@ -18,6 +18,8 @@ class SymptomRecord(TimestampMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(500))
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     planting_record = relationship("PlantingRecord", back_populates="symptom_records")
     symptom = relationship("Symptom", back_populates="symptom_records")

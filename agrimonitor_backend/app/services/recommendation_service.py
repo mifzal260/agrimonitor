@@ -16,7 +16,7 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
     symptom_records = db.scalars(
         select(SymptomRecord)
         .options(selectinload(SymptomRecord.symptom))
-        .where(SymptomRecord.planting_record_id == planting_record.id, SymptomRecord.user_id == user_id)
+        .where(SymptomRecord.planting_record_id == planting_record.id, SymptomRecord.user_id == user_id, SymptomRecord.status != "resolved")
     ).all()
     observed_symptom_ids = {record.symptom_id for record in symptom_records}
     observed_symptom_names = {record.symptom_id: record.symptom.name for record in symptom_records}

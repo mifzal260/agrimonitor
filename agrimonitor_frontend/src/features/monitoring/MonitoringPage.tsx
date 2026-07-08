@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord } from "../../api/monitoring";
+import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
@@ -246,6 +246,51 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     }
   }
 
+
+  async function handleUpdateSymptomRecord(symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) {
+    setError("");
+    setSuccessMessage("");
+    try {
+      const updated = await updateSymptomRecord(token, symptomRecordId, {
+        severity: form.severity,
+        observed_at: new Date(`${form.observed_at}T12:00:00`).toISOString(),
+        notes: form.notes.trim(),
+        image_url: form.image_url.trim(),
+        status: form.status,
+        resolved_at: form.resolved_at ?? null,
+      });
+      setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      setSuccessMessage("Rekod simptom berjaya dikemaskini.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rekod simptom gagal dikemaskini.");
+    }
+  }
+
+  async function handleResolveSymptomRecord(symptomRecordId: number) {
+    setError("");
+    setSuccessMessage("");
+    try {
+      const updated = await updateSymptomRecord(token, symptomRecordId, { status: "resolved", resolved_at: new Date().toISOString() });
+      setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      setSuccessMessage("Simptom berjaya ditandakan selesai.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Simptom gagal ditandakan selesai.");
+    }
+  }
+
+  async function handleDeleteSymptomRecord(symptomRecordId: number) {
+    const confirmed = window.confirm("Padam rekod simptom ini?");
+    if (!confirmed) return;
+    setError("");
+    setSuccessMessage("");
+    try {
+      await deleteSymptomRecord(token, symptomRecordId);
+      setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== symptomRecordId));
+      setSuccessMessage("Rekod simptom berjaya dipadam.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rekod simptom gagal dipadam.");
+    }
+  }
   async function evaluate(recordId: number) {
     setError("");
     setIsEvaluating(true);
@@ -351,7 +396,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         onDelete={handleDeletePlantingRecord}
       />
 
-      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary records={records} activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><SymptomSummary records={records} symptomRecords={symptomRecords} /></section>
+      <section className="grid gap-4 md:grid-cols-2"><ActivitySummary records={records} activities={activities} onUpdate={handleUpdateActivity} onDelete={handleDeleteActivity} /><SymptomSummary records={records} symptomRecords={symptomRecords} onUpdate={handleUpdateSymptomRecord} onResolve={handleResolveSymptomRecord} onDelete={handleDeleteSymptomRecord} /></section>
     </div>
   );
 }
@@ -596,26 +641,66 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
     </div>
   );
 }
-function SymptomSummary({ records, symptomRecords }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[] }) {
+function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[]; onUpdate: (symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) => Promise<void>; onResolve: (symptomRecordId: number) => Promise<void>; onDelete: (symptomRecordId: number) => Promise<void> }) {
   const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id))?.id.toString() ?? "");
+  const [statusFilter, setStatusFilter] = useState<"active" | "resolved">("active");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({ severity: "low", observed_at: "", notes: "", image_url: "", status: "active", resolved_at: null as string | null });
+
   const recordsWithSymptoms = records.filter((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id));
   const selectedRecord = records.find((record) => record.id.toString() === selectedRecordId);
-  const selectedSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id.toString() === selectedRecordId);
-  const highCount = symptomRecords.filter((symptom) => symptom.severity === "high").length;
-  const mediumCount = symptomRecords.filter((symptom) => symptom.severity === "medium").length;
+  const activeSymptoms = symptomRecords.filter((symptom) => symptom.status !== "resolved");
+  const resolvedSymptoms = symptomRecords.filter((symptom) => symptom.status === "resolved");
+  const selectedSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id.toString() === selectedRecordId && (statusFilter === "resolved" ? symptom.status === "resolved" : symptom.status !== "resolved"));
+  const highCount = activeSymptoms.filter((symptom) => symptom.severity === "high").length;
+  const mediumCount = activeSymptoms.filter((symptom) => symptom.severity === "medium").length;
 
   useEffect(() => {
     if (!selectedRecordId && recordsWithSymptoms.length > 0) setSelectedRecordId(recordsWithSymptoms[0].id.toString());
   }, [recordsWithSymptoms, selectedRecordId]);
+
+  function toDateInput(value: string) {
+    return value ? value.slice(0, 10) : "";
+  }
+
+  function startEdit(record: SymptomRecord) {
+    setOpenMenuId(null);
+    setEditingId(record.id);
+    setEditForm({
+      severity: record.severity,
+      observed_at: toDateInput(record.observed_at),
+      notes: record.notes ?? "",
+      image_url: record.image_url ?? "",
+      status: record.status,
+      resolved_at: record.resolved_at,
+    });
+  }
+
+  async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingId) return;
+    const symptomRecordId = editingId;
+    const nextForm = editForm;
+    setEditingId(null);
+    setOpenMenuId(null);
+    setIsSavingEdit(true);
+    try {
+      await onUpdate(symptomRecordId, nextForm);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }
 
   return (
     <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold">Masalah tanaman mengikut plot</h3>
-          <p className="mt-1 text-xs text-slate-500">Pilih plot untuk lihat simptom dan tindakan awal.</p>
+          <p className="mt-1 text-xs text-slate-500">Masalah aktif boleh ditandakan selesai selepas tanaman pulih.</p>
         </div>
-        <StatusBadge label={`${symptomRecords.length} simptom`} tone={highCount > 0 || mediumCount > 0 ? "warning" : "info"} />
+        <StatusBadge label={`${activeSymptoms.length} aktif`} tone={highCount > 0 || mediumCount > 0 ? "warning" : "info"} />
       </div>
 
       {recordsWithSymptoms.length === 0 ? (
@@ -623,33 +708,72 @@ function SymptomSummary({ records, symptomRecords }: { records: PlantingRecord[]
       ) : (
         <>
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => setSelectedRecordId(event.target.value)}>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); }}>
               {recordsWithSymptoms.map((record) => (
                 <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
               ))}
             </select>
-            <div className="flex items-center gap-2">
-              <StatusBadge label={`${selectedSymptoms.length} rekod`} tone="info" />
-              <StatusBadge label={`${highCount} tinggi`} tone={highCount > 0 ? "warning" : "success"} />
+            <div className="grid grid-cols-2 rounded-md border border-slate-200 p-1 text-xs font-semibold">
+              <button className={`rounded px-3 py-1.5 ${statusFilter === "active" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => setStatusFilter("active")}>Aktif</button>
+              <button className={`rounded px-3 py-1.5 ${statusFilter === "resolved" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => setStatusFilter("resolved")}>Selesai</button>
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <StatusBadge label={`${activeSymptoms.length} aktif`} tone={activeSymptoms.length > 0 ? "warning" : "success"} />
+            <StatusBadge label={`${resolvedSymptoms.length} selesai`} tone="success" />
+            <StatusBadge label={`${highCount} tinggi`} tone={highCount > 0 ? "warning" : "success"} />
           </div>
 
           {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({selectedRecord.crop.name})</span></p>}
 
           {selectedSymptoms.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-600">Tiada simptom untuk plot ini.</p>
+            <p className="mt-3 text-sm text-slate-600">Tiada rekod {statusFilter === "active" ? "aktif" : "selesai"} untuk plot ini.</p>
           ) : (
             <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
               {selectedSymptoms.slice(0, 8).map((record) => (
                 <li key={record.id} className="py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-slate-950">{record.symptom.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{new Date(record.observed_at).toLocaleDateString()} - {symptomActionText(record.severity)}</p>
-                      {record.notes && <p className="mt-1 text-xs text-slate-500">Catatan: {record.notes}</p>}
+                  {editingId === record.id ? (
+                    <form onSubmit={submitEdit} className="space-y-2 rounded-md bg-field-50 p-3">
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={editForm.observed_at} onChange={(event) => setEditForm({ ...editForm, observed_at: event.target.value })} required />
+                        <select className="rounded-md border border-slate-300 px-3 py-2" value={editForm.severity} onChange={(event) => setEditForm({ ...editForm, severity: event.target.value })}>
+                          <option value="low">Rendah</option><option value="medium">Sederhana</option><option value="high">Tinggi</option>
+                        </select>
+                      </div>
+                      <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value, resolved_at: event.target.value === "resolved" ? (editForm.resolved_at ?? new Date().toISOString()) : null })}>
+                        <option value="active">Aktif</option><option value="monitoring">Dipantau</option><option value="resolved">Selesai</option>
+                      </select>
+                      <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Image URL optional" value={editForm.image_url} onChange={(event) => setEditForm({ ...editForm, image_url: event.target.value })} />
+                      <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={editForm.notes} onChange={(event) => setEditForm({ ...editForm, notes: event.target.value })} />
+                      <div className="flex gap-2">
+                        <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingEdit}>{isSavingEdit ? "Menyimpan..." : "Simpan"}</button>
+                        <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={() => setEditingId(null)}>Batal</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-slate-950">{record.symptom.name}</p>
+                          <StatusBadge label={record.status === "resolved" ? "Selesai" : record.status === "monitoring" ? "Dipantau" : "Aktif"} tone={record.status === "resolved" ? "success" : "warning"} />
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{new Date(record.observed_at).toLocaleDateString()} - {record.status === "resolved" ? `Selesai pada ${record.resolved_at ? new Date(record.resolved_at).toLocaleDateString() : "tarikh tidak direkod"}` : symptomActionText(record.severity)}</p>
+                        {record.notes && <p className="mt-1 text-xs text-slate-500">Catatan: {record.notes}</p>}
+                      </div>
+                      <div className="relative flex shrink-0 items-center gap-2">
+                        <StatusBadge label={severityLabel(record.severity)} tone={severityTone(record.severity)} />
+                        <button className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" aria-label="Buka menu simptom" onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
+                        {openMenuId === record.id && (
+                          <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
+                            {record.status !== "resolved" && <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" type="button" onClick={() => { setOpenMenuId(null); void onResolve(record.id); }}>Tandakan selesai</button>}
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(record)}>Edit rekod</button>
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(record.id); }}>Padam</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <StatusBadge label={severityLabel(record.severity)} tone={severityTone(record.severity)} />
-                  </div>
+                  )}
                 </li>
               ))}
             </ul>

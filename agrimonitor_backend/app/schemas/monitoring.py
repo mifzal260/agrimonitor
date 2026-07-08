@@ -86,6 +86,8 @@ class SymptomRecordBase(BaseModel):
     notes: str | None = None
     image_url: str | None = Field(default=None, max_length=500)
     observed_at: datetime
+    status: str = Field(default="active", max_length=20)
+    resolved_at: datetime | None = None
 
 
 class SymptomRecordCreate(SymptomRecordBase):
@@ -97,6 +99,8 @@ class SymptomRecordUpdate(BaseModel):
     notes: str | None = None
     image_url: str | None = Field(default=None, max_length=500)
     observed_at: datetime | None = None
+    status: str | None = Field(default=None, max_length=20)
+    resolved_at: datetime | None = None
 
 
 class SymptomRecordRead(SymptomRecordBase):

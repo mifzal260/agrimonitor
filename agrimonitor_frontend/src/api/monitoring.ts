@@ -115,3 +115,24 @@ export function createSymptomRecord(token: string, payload: {
     }),
   });
 }
+export function updateSymptomRecord(token: string, symptomRecordId: number, payload: {
+  severity?: string;
+  notes?: string;
+  image_url?: string;
+  observed_at?: string;
+  status?: string;
+  resolved_at?: string | null;
+}) {
+  return apiRequest<SymptomRecord>(`/monitoring/symptom-records/${symptomRecordId}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...payload, notes: payload.notes || null, image_url: payload.image_url || null }),
+  });
+}
+
+export function deleteSymptomRecord(token: string, symptomRecordId: number) {
+  return apiRequest<null>(`/monitoring/symptom-records/${symptomRecordId}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+}

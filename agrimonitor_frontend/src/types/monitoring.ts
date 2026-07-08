@@ -44,5 +44,7 @@ export type SymptomRecord = {
   notes: string | null;
   image_url: string | null;
   observed_at: string;
+  status: string;
+  resolved_at: string | null;
   symptom: Symptom;
 };

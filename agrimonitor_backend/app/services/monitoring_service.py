@@ -122,6 +122,22 @@ def create_symptom_record(db: Session, user_id: int, payload: SymptomRecordCreat
 def update_symptom_record(db: Session, record: SymptomRecord, payload: SymptomRecordUpdate) -> SymptomRecord:
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(record, key, value)
+
+    active_count = db.scalar(
+        select(SymptomRecord)
+        .where(
+            SymptomRecord.planting_record_id == record.planting_record_id,
+            SymptomRecord.user_id == record.user_id,
+            SymptomRecord.status != "resolved",
+            SymptomRecord.id != record.id,
+        )
+        .limit(1)
+    )
+    if record.status == "resolved" and active_count is None:
+        planting_record = db.get(PlantingRecord, record.planting_record_id)
+        if planting_record is not None and planting_record.status != "harvested":
+            planting_record.status = "healthy"
+
     db.commit()
     db.refresh(record)
     return record
