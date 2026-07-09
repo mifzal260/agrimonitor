@@ -211,9 +211,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       const updated = await updateActivity(token, activityId, { ...form, activity_type: capitalizeFirst(form.activity_type) });
       setActivities((currentActivities) => currentActivities.map((activity) => activity.id === updated.id ? updated : activity));
-      setSuccessMessage("Aktiviti ladang berjaya dikemaskini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Aktiviti ladang gagal dikemaskini.");
+      throw err;
     }
   }
 
@@ -225,9 +225,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       await deleteActivity(token, activityId);
       setActivities((currentActivities) => currentActivities.filter((activity) => activity.id !== activityId));
-      setSuccessMessage("Aktiviti ladang berjaya dipadam.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Aktiviti ladang gagal dipadam.");
+      throw err;
     }
   }
 
@@ -270,9 +270,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
       await refreshPlantingRecords();
-      setSuccessMessage("Rekod simptom berjaya dikemaskini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rekod simptom gagal dikemaskini.");
+      throw err;
     }
   }
 
@@ -283,9 +283,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       const updated = await updateSymptomRecord(token, symptomRecordId, { status: "resolved", resolved_at: new Date().toISOString() });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
       await refreshPlantingRecords();
-      setSuccessMessage("Simptom berjaya ditandakan selesai.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Simptom gagal ditandakan selesai.");
+      throw err;
     }
   }
 
@@ -298,9 +298,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       await deleteSymptomRecord(token, symptomRecordId);
       setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== symptomRecordId));
       await refreshPlantingRecords();
-      setSuccessMessage("Rekod simptom berjaya dipadam.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Rekod simptom gagal dipadam.");
+      throw err;
     }
   }
   async function evaluate(recordId: number) {
@@ -549,6 +549,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
   const [editForm, setEditForm] = useState({ activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
   const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => activities.some((activity) => activity.planting_record_id === record.id))?.id.toString() ?? "");
 
   const selectedRecord = records.find((record) => record.id.toString() === selectedRecordId);
@@ -557,6 +558,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
   const recordsWithActivities = records.filter((record) => activities.some((activity) => activity.planting_record_id === record.id));
 
   function startEdit(activity: Activity) {
+    setStatusMessage("");
     setOpenMenuId(null);
     setEditingId(activity.id);
     setEditForm({ activity_type: activity.activity_type, activity_date: activity.activity_date, description: activity.description ?? "", cost_amount: activity.cost_amount ?? "", labor_cost_amount: activity.labor_cost_amount ?? "" });
@@ -572,6 +574,9 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
     setIsSavingEdit(true);
     try {
       await onUpdate(activityId, nextForm);
+      setStatusMessage("Aktiviti ladang berjaya dikemaskini.");
+    } catch {
+      setEditingId(activityId);
     } finally {
       setIsSavingEdit(false);
     }
@@ -587,12 +592,14 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
         <StatusBadge label={toCurrency(String(totalCost))} tone={totalCost > 0 ? "warning" : "info"} />
       </div>
 
+      {statusMessage && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{statusMessage}</p>}
+
       {recordsWithActivities.length === 0 ? (
         <p className="mt-3 text-sm text-slate-600">No records yet.</p>
       ) : (
         <>
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); }}>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); setStatusMessage(""); }}>
               {recordsWithActivities.map((record) => (
                 <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
               ))}
@@ -645,7 +652,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                         {openMenuId === activity.id && (
                           <div className="absolute right-0 top-8 z-20 w-36 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
                             <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(activity)}>Edit aktiviti</button>
-                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(activity.id); }}>Padam</button>
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onDelete(activity.id); setStatusMessage("Aktiviti ladang berjaya dipadam."); } catch { /* error banner is handled by parent */ } }}>Padam</button>
                           </div>
                         )}
                       </div>
@@ -667,6 +674,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [editForm, setEditForm] = useState({ severity: "low", observed_at: "", notes: "", image_url: "", status: "active", resolved_at: null as string | null });
 
   const recordsWithSymptoms = records.filter((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id));
@@ -686,6 +694,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
   }
 
   function startEdit(record: SymptomRecord) {
+    setStatusMessage("");
     setOpenMenuId(null);
     setEditingId(record.id);
     setEditForm({
@@ -708,6 +717,9 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     setIsSavingEdit(true);
     try {
       await onUpdate(symptomRecordId, nextForm);
+      setStatusMessage("Rekod masalah tanaman berjaya dikemaskini.");
+    } catch {
+      setEditingId(symptomRecordId);
     } finally {
       setIsSavingEdit(false);
     }
@@ -723,19 +735,21 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
         <StatusBadge label={`${activeSymptoms.length} aktif`} tone={highCount > 0 || mediumCount > 0 ? "warning" : "info"} />
       </div>
 
+      {statusMessage && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{statusMessage}</p>}
+
       {recordsWithSymptoms.length === 0 ? (
         <p className="mt-3 text-sm text-slate-600">Belum ada simptom direkodkan.</p>
       ) : (
         <>
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); }}>
+            <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); setStatusMessage(""); }}>
               {recordsWithSymptoms.map((record) => (
                 <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
               ))}
             </select>
             <div className="grid grid-cols-2 rounded-md border border-slate-200 p-1 text-xs font-semibold">
-              <button className={`rounded px-3 py-1.5 ${statusFilter === "active" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => setStatusFilter("active")}>Aktif</button>
-              <button className={`rounded px-3 py-1.5 ${statusFilter === "resolved" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => setStatusFilter("resolved")}>Selesai</button>
+              <button className={`rounded px-3 py-1.5 ${statusFilter === "active" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => { setStatusFilter("active"); setStatusMessage(""); }}>Aktif</button>
+              <button className={`rounded px-3 py-1.5 ${statusFilter === "resolved" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => { setStatusFilter("resolved"); setStatusMessage(""); }}>Selesai</button>
             </div>
           </div>
 
@@ -786,9 +800,9 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                         <button className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" aria-label="Buka menu simptom" onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
                         {openMenuId === record.id && (
                           <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
-                            {record.status !== "resolved" && <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" type="button" onClick={() => { setOpenMenuId(null); void onResolve(record.id); }}>Tandakan selesai</button>}
+                            {record.status !== "resolved" && <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onResolve(record.id); setStatusMessage("Masalah tanaman berjaya ditandakan selesai."); } catch { /* error banner is handled by parent */ } }}>Tandakan selesai</button>}
                             <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(record)}>Edit rekod</button>
-                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); void onDelete(record.id); }}>Padam</button>
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onDelete(record.id); setStatusMessage("Rekod masalah tanaman berjaya dipadam."); } catch { /* error banner is handled by parent */ } }}>Padam</button>
                           </div>
                         )}
                       </div>
@@ -803,6 +817,4 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
-
 
