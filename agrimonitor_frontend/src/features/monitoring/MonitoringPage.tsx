@@ -629,9 +629,10 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0"><p className="truncate">{activity.activity_date} - {activity.activity_type}</p>{activity.description && <p className="mt-1 truncate text-xs text-slate-500">{activity.description}</p>}</div>
                       <div className="relative flex shrink-0 items-center gap-2 text-right">
-                        <div className="text-right">
-                          <p className="whitespace-nowrap font-semibold text-slate-950">{toCurrency(String(getActivityTotalCost(activity)))}</p>
-                          <p className="text-xs text-slate-500">Buruh: {toCurrency(activity.labor_cost_amount ?? "0")}</p>
+                        <div className="text-right text-xs text-slate-500">
+                          <p>Bahan: {toCurrency(activity.cost_amount ?? "0")}</p>
+                          <p>Buruh: {toCurrency(activity.labor_cost_amount ?? "0")}</p>
+                          <p className="mt-1 whitespace-nowrap text-sm font-semibold text-slate-950">Total: {toCurrency(String(getActivityTotalCost(activity)))}</p>
                         </div>
                         <button
                           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
@@ -802,4 +803,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
+
+
 

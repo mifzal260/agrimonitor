@@ -171,9 +171,10 @@ export function FinancePage({ token }: FinancePageProps) {
                     <span className="font-medium text-slate-900">{activity.activity_date} - {activity.activity_type}</span>
                     {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
                   </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block font-semibold text-slate-950">{formatCurrency(getActivityTotalCost(activity))}</span>
-                    <span className="block text-xs text-slate-500">Buruh: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
+                  <span className="shrink-0 text-right text-xs text-slate-500">
+                    <span className="block">Bahan: {formatCurrency(toNumber(activity.cost_amount))}</span>
+                    <span className="block">Buruh: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
+                    <span className="mt-1 block text-sm font-semibold text-slate-950">Total: {formatCurrency(getActivityTotalCost(activity))}</span>
                   </span>
                 </li>
               ))}
@@ -268,4 +269,6 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
+
+
 
