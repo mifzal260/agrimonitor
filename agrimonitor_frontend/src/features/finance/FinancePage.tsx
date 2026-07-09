@@ -19,7 +19,8 @@ export function FinancePage({ token }: FinancePageProps) {
   const [editingHarvestId, setEditingHarvestId] = useState<number | null>(null);
   const [openHarvestMenuId, setOpenHarvestMenuId] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [harvestFormMessage, setHarvestFormMessage] = useState("");
+  const [harvestListMessage, setHarvestListMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingHarvest, setIsSavingHarvest] = useState(false);
   const [isSavingHarvestEdit, setIsSavingHarvestEdit] = useState(false);
@@ -78,13 +79,14 @@ export function FinancePage({ token }: FinancePageProps) {
     }
 
     setError("");
-    setSuccessMessage("");
+    setHarvestFormMessage("");
+    setHarvestListMessage("");
     setIsSavingHarvest(true);
     try {
       const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(selectedRecordId) });
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
       setHarvestForm(emptyHarvestForm);
-      setSuccessMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
+      setHarvestFormMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal disimpan.");
     } finally {
@@ -101,7 +103,8 @@ export function FinancePage({ token }: FinancePageProps) {
       selling_price_per_unit: harvest.selling_price_per_unit,
       notes: harvest.notes ?? "",
     });
-    setSuccessMessage("");
+    setHarvestFormMessage("");
+    setHarvestListMessage("");
     setError("");
     setOpenHarvestMenuId(null);
   }
@@ -112,13 +115,14 @@ export function FinancePage({ token }: FinancePageProps) {
 
     const harvestId = editingHarvestId;
     setError("");
-    setSuccessMessage("");
+    setHarvestFormMessage("");
+    setHarvestListMessage("");
     setIsSavingHarvestEdit(true);
     try {
       const savedHarvest = await updateHarvest(token, harvestId, editHarvestForm);
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
       resetInlineHarvestEdit();
-      setSuccessMessage("Hasil tuaian berjaya dikemas kini.");
+      setHarvestListMessage("Hasil tuaian berjaya dikemas kini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal dikemas kini.");
     } finally {
@@ -131,13 +135,14 @@ export function FinancePage({ token }: FinancePageProps) {
     if (!shouldDelete) return;
 
     setError("");
-    setSuccessMessage("");
+    setHarvestFormMessage("");
+    setHarvestListMessage("");
     setOpenHarvestMenuId(null);
     try {
       await deleteHarvest(token, harvestId);
       setHarvests((currentHarvests) => currentHarvests.filter((harvest) => harvest.id !== harvestId));
       if (editingHarvestId === harvestId) resetInlineHarvestEdit();
-      setSuccessMessage("Rekod hasil tuaian berjaya dipadam.");
+      setHarvestListMessage("Rekod hasil tuaian berjaya dipadam.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal dipadam.");
     }
@@ -215,7 +220,7 @@ export function FinancePage({ token }: FinancePageProps) {
           <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId}>
             {isSavingHarvest ? "Saving..." : "Save harvest"}
           </button>
-          {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{successMessage}</p>}
+          {harvestFormMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestFormMessage}</p>}
         </form>
       </div>
 
@@ -226,6 +231,7 @@ export function FinancePage({ token }: FinancePageProps) {
             {formatCurrency(totalRevenue)}
           </span>
         </div>
+        {harvestListMessage && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestListMessage}</p>}
         {selectedHarvests.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">Belum ada hasil tuaian untuk plot ini.</p>
         ) : (
@@ -302,3 +308,5 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
+
+
