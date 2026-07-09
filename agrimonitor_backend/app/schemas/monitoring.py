@@ -59,6 +59,7 @@ class ActivityBase(BaseModel):
     activity_date: date
     description: str | None = None
     cost_amount: Decimal | None = Field(default=None, ge=0)
+    labor_cost_amount: Decimal | None = Field(default=None, ge=0)
 
 
 class ActivityCreate(ActivityBase):
@@ -70,6 +71,7 @@ class ActivityUpdate(BaseModel):
     activity_date: date | None = None
     description: str | None = None
     cost_amount: Decimal | None = Field(default=None, ge=0)
+    labor_cost_amount: Decimal | None = Field(default=None, ge=0)
 
 
 class ActivityRead(ActivityBase):
@@ -109,3 +111,5 @@ class SymptomRecordRead(SymptomRecordBase):
     symptom: SymptomRead
 
     model_config = {"from_attributes": True}
+
+

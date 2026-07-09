@@ -18,5 +18,8 @@ class Activity(TimestampMixin, Base):
     activity_date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     cost_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    labor_cost_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
 
     planting_record = relationship("PlantingRecord", back_populates="activities")
+
+

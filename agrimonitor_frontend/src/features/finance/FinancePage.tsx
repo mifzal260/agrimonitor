@@ -58,7 +58,7 @@ export function FinancePage({ token }: FinancePageProps) {
     [harvests, selectedRecordId],
   );
 
-  const totalCost = selectedActivities.reduce((total, activity) => total + toNumber(activity.cost_amount), 0);
+  const totalCost = selectedActivities.reduce((total, activity) => total + getActivityTotalCost(activity), 0);
   const totalRevenue = selectedHarvests.reduce((total, harvest) => total + toNumber(harvest.revenue), 0);
   const profitLoss = totalRevenue - totalCost;
 
@@ -171,7 +171,10 @@ export function FinancePage({ token }: FinancePageProps) {
                     <span className="font-medium text-slate-900">{activity.activity_date} - {activity.activity_type}</span>
                     {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
                   </span>
-                  <span className="shrink-0 font-semibold text-slate-950">{formatCurrency(toNumber(activity.cost_amount))}</span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-semibold text-slate-950">{formatCurrency(getActivityTotalCost(activity))}</span>
+                    <span className="block text-xs text-slate-500">Buruh: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
+                  </span>
                 </li>
               ))}
             </ul>
@@ -253,6 +256,10 @@ function SummaryCard({ label, value, tone }: { label: string; value: string; ton
   return <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-slate-600">{label}</p><StatusBadge label={tone} tone={tone} /></div><p className="mt-3 text-2xl font-bold text-slate-950">{value}</p></article>;
 }
 
+function getActivityTotalCost(activity: Activity) {
+  return toNumber(activity.cost_amount) + toNumber(activity.labor_cost_amount);
+}
+
 function toNumber(value: string | null | undefined) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -261,3 +268,4 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
+

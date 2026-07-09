@@ -54,8 +54,12 @@ function toCurrency(value: string | null) {
   return `RM ${amount.toFixed(2)}`;
 }
 
+function getActivityTotalCost(activity: Activity) {
+  return Number(activity.cost_amount ?? 0) + Number(activity.labor_cost_amount ?? 0);
+}
+
 function totalActivityCost(activities: Activity[]) {
-  return activities.reduce((total, activity) => total + Number(activity.cost_amount ?? 0), 0);
+  return activities.reduce((total, activity) => total + getActivityTotalCost(activity), 0);
 }
 
 function capitalizeFirst(value: string) {
@@ -82,7 +86,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [symptomSaveMessage, setSymptomSaveMessage] = useState("");
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
-  const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
+  const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
   const [symptomForm, setSymptomForm] = useState({ planting_record_id: "", symptom_id: "", severity: "low", observed_at: "", notes: "", image_url: "" });
 
   const hasRecords = records.length > 0;
@@ -192,7 +196,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       const savedActivity = await createActivity(token, { ...activityForm, activity_type: capitalizeFirst(activityForm.activity_type), planting_record_id: Number(activityForm.planting_record_id) });
       setActivities((currentActivities) => [savedActivity, ...currentActivities.filter((activity) => activity.id !== savedActivity.id)]);
-      setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "" });
+      setActivityForm({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
       setActivitySaveMessage("Maklumat aktiviti berjaya disimpan dan sudah masuk dalam senarai aktiviti.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Aktiviti ladang gagal disimpan.");
@@ -201,7 +205,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     }
   }
 
-  async function handleUpdateActivity(activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string }) {
+  async function handleUpdateActivity(activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }) {
     setError("");
     setSuccessMessage("");
     try {
@@ -490,7 +494,7 @@ function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: P
     </section>
   );
 }
-function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage }: { records: PlantingRecord[]; form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }; setForm: (form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean; saveMessage: string }) {
+function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage }: { records: PlantingRecord[]; form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }; setForm: (form: { planting_record_id: string; activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean; saveMessage: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <h3 className="font-semibold">Record activity</h3>
@@ -499,7 +503,10 @@ function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage 
       </select>
       <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Activity type" value={form.activity_type} onChange={(event) => setForm({ ...form, activity_type: event.target.value })} required />
       <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={form.activity_date} onChange={(event) => setForm({ ...form, activity_date: event.target.value })} required />
-      <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Cost amount" value={form.cost_amount} onChange={(event) => setForm({ ...form, cost_amount: event.target.value })} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos aktiviti/bahan" value={form.cost_amount} onChange={(event) => setForm({ ...form, cost_amount: event.target.value })} />
+        <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos buruh" value={form.labor_cost_amount} onChange={(event) => setForm({ ...form, labor_cost_amount: event.target.value })} />
+      </div>
       <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
       <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save activity"}</button>
       {saveMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{saveMessage}</p>}
@@ -536,10 +543,10 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, sav
   );
 }
 
-function ActivitySummary({ records, activities, onUpdate, onDelete }: { records: PlantingRecord[]; activities: Activity[]; onUpdate: (activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string }) => Promise<void>; onDelete: (activityId: number) => Promise<void> }) {
+function ActivitySummary({ records, activities, onUpdate, onDelete }: { records: PlantingRecord[]; activities: Activity[]; onUpdate: (activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }) => Promise<void>; onDelete: (activityId: number) => Promise<void> }) {
   const totalCost = totalActivityCost(activities);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ activity_type: "", activity_date: "", description: "", cost_amount: "" });
+  const [editForm, setEditForm] = useState({ activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => activities.some((activity) => activity.planting_record_id === record.id))?.id.toString() ?? "");
@@ -552,7 +559,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
   function startEdit(activity: Activity) {
     setOpenMenuId(null);
     setEditingId(activity.id);
-    setEditForm({ activity_type: activity.activity_type, activity_date: activity.activity_date, description: activity.description ?? "", cost_amount: activity.cost_amount ?? "" });
+    setEditForm({ activity_type: activity.activity_type, activity_date: activity.activity_date, description: activity.description ?? "", cost_amount: activity.cost_amount ?? "", labor_cost_amount: activity.labor_cost_amount ?? "" });
   }
 
   async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
@@ -607,9 +614,10 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                   {editingId === activity.id ? (
                     <form onSubmit={submitEdit} className="space-y-2 rounded-md bg-field-50 p-3">
                       <input className="w-full rounded-md border border-slate-300 px-3 py-2" value={editForm.activity_type} onChange={(event) => setEditForm({ ...editForm, activity_type: event.target.value })} required />
+                      <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={editForm.activity_date} onChange={(event) => setEditForm({ ...editForm, activity_date: event.target.value })} required />
                       <div className="grid gap-2 sm:grid-cols-2">
-                        <input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={editForm.activity_date} onChange={(event) => setEditForm({ ...editForm, activity_date: event.target.value })} required />
-                        <input className="rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos" value={editForm.cost_amount} onChange={(event) => setEditForm({ ...editForm, cost_amount: event.target.value })} />
+                        <input className="rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos aktiviti/bahan" value={editForm.cost_amount} onChange={(event) => setEditForm({ ...editForm, cost_amount: event.target.value })} />
+                        <input className="rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="Kos buruh" value={editForm.labor_cost_amount} onChange={(event) => setEditForm({ ...editForm, labor_cost_amount: event.target.value })} />
                       </div>
                       <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} />
                       <div className="flex gap-2">
@@ -621,7 +629,10 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0"><p className="truncate">{activity.activity_date} - {activity.activity_type}</p>{activity.description && <p className="mt-1 truncate text-xs text-slate-500">{activity.description}</p>}</div>
                       <div className="relative flex shrink-0 items-center gap-2 text-right">
-                        <p className="whitespace-nowrap font-semibold text-slate-950">{activity.cost_amount ? toCurrency(activity.cost_amount) : "RM 0.00"}</p>
+                        <div className="text-right">
+                          <p className="whitespace-nowrap font-semibold text-slate-950">{toCurrency(String(getActivityTotalCost(activity)))}</p>
+                          <p className="text-xs text-slate-500">Buruh: {toCurrency(activity.labor_cost_amount ?? "0")}</p>
+                        </div>
                         <button
                           className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                           type="button"
@@ -791,3 +802,4 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
+

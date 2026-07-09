@@ -33,6 +33,7 @@ export type Activity = {
   activity_date: string;
   description: string | null;
   cost_amount: string | null;
+  labor_cost_amount: string | null;
 };
 
 export type SymptomRecord = {
@@ -48,3 +49,4 @@ export type SymptomRecord = {
   resolved_at: string | null;
   symptom: Symptom;
 };
+

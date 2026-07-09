@@ -64,11 +64,17 @@ export function createActivity(token: string, payload: {
   activity_date: string;
   description?: string;
   cost_amount?: string;
+  labor_cost_amount?: string;
 }) {
   return apiRequest<Activity>("/monitoring/activities", {
     method: "POST",
     headers: authHeaders(token),
-    body: JSON.stringify({ ...payload, description: payload.description || null, cost_amount: payload.cost_amount || null }),
+    body: JSON.stringify({
+      ...payload,
+      description: payload.description || null,
+      cost_amount: payload.cost_amount || null,
+      labor_cost_amount: payload.labor_cost_amount || null,
+    }),
   });
 }
 
@@ -78,11 +84,17 @@ export function updateActivity(token: string, activityId: number, payload: {
   activity_date?: string;
   description?: string;
   cost_amount?: string;
+  labor_cost_amount?: string;
 }) {
   return apiRequest<Activity>(`/monitoring/activities/${activityId}`, {
     method: "PATCH",
     headers: authHeaders(token),
-    body: JSON.stringify({ ...payload, description: payload.description || null, cost_amount: payload.cost_amount || null }),
+    body: JSON.stringify({
+      ...payload,
+      description: payload.description || null,
+      cost_amount: payload.cost_amount || null,
+      labor_cost_amount: payload.labor_cost_amount || null,
+    }),
   });
 }
 
@@ -136,3 +148,4 @@ export function deleteSymptomRecord(token: string, symptomRecordId: number) {
     headers: authHeaders(token),
   });
 }
+
