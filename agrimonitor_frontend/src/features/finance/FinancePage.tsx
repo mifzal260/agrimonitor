@@ -10,6 +10,7 @@ type FinancePageProps = { token: string };
 type HarvestFormState = { harvest_date: string; quantity: string; unit: string; selling_price_per_unit: string; notes: string };
 
 const emptyHarvestForm: HarvestFormState = { harvest_date: "", quantity: "", unit: "kg", selling_price_per_unit: "", notes: "" };
+const ALL_RECORDS_VALUE = "all";
 
 export function FinancePage({ token }: FinancePageProps) {
   const [records, setRecords] = useState<PlantingRecord[]>([]);
@@ -39,7 +40,7 @@ export function FinancePage({ token }: FinancePageProps) {
       setRecords(recordData);
       setActivities(activityData);
       setHarvests(harvestData);
-      setSelectedRecordId((currentId) => currentId || String(recordData[0]?.id ?? ""));
+      setSelectedRecordId((currentId) => currentId || (recordData.length > 0 ? ALL_RECORDS_VALUE : ""));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load finance data");
     } finally {
@@ -51,14 +52,16 @@ export function FinancePage({ token }: FinancePageProps) {
     void loadData();
   }, [token]);
 
-  const selectedRecord = records.find((record) => String(record.id) === selectedRecordId) ?? null;
+  const isAllRecordsSelected = selectedRecordId === ALL_RECORDS_VALUE;
+  const selectedRecord = isAllRecordsSelected ? null : records.find((record) => String(record.id) === selectedRecordId) ?? null;
+  const selectedRecordLabel = isAllRecordsSelected ? "Keseluruhan semua plot" : selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : "Tiada plot dipilih";
   const selectedActivities = useMemo(
-    () => activities.filter((activity) => String(activity.planting_record_id) === selectedRecordId),
-    [activities, selectedRecordId],
+    () => isAllRecordsSelected ? activities : activities.filter((activity) => String(activity.planting_record_id) === selectedRecordId),
+    [activities, isAllRecordsSelected, selectedRecordId],
   );
   const selectedHarvests = useMemo(
-    () => harvests.filter((harvest) => String(harvest.planting_record_id) === selectedRecordId),
-    [harvests, selectedRecordId],
+    () => isAllRecordsSelected ? harvests : harvests.filter((harvest) => String(harvest.planting_record_id) === selectedRecordId),
+    [harvests, isAllRecordsSelected, selectedRecordId],
   );
 
   const totalCost = selectedActivities.reduce((total, activity) => total + getActivityTotalCost(activity), 0);
@@ -73,8 +76,8 @@ export function FinancePage({ token }: FinancePageProps) {
 
   async function submitHarvest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedRecordId) {
-      setError("Pilih plot dahulu sebelum simpan hasil tuaian.");
+    if (!selectedRecordId || isAllRecordsSelected) {
+      setError("Pilih satu plot dahulu sebelum simpan hasil tuaian.");
       return;
     }
 
@@ -161,7 +164,7 @@ export function FinancePage({ token }: FinancePageProps) {
             <PlotSelect records={records} value={selectedRecordId} onChange={(value) => { setSelectedRecordId(value); resetInlineHarvestEdit(); }} />
           </label>
           <div className="rounded-md bg-field-50 px-3 py-2 text-sm text-slate-700">
-            {selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : "Tiada plot dipilih"}
+            {selectedRecordLabel}
           </div>
         </div>
       </section>
@@ -177,7 +180,7 @@ export function FinancePage({ token }: FinancePageProps) {
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Kos aktiviti dari Crop Monitoring</h2>
-              <p className="mt-1 text-sm text-slate-600">Kos diambil terus daripada aktiviti ladang untuk plot yang dipilih.</p>
+              <p className="mt-1 text-sm text-slate-600">Kos diambil terus daripada aktiviti ladang untuk {isAllRecordsSelected ? "semua plot" : "plot yang dipilih"}.</p>
             </div>
             <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
               {formatCurrency(totalCost)}
@@ -185,13 +188,14 @@ export function FinancePage({ token }: FinancePageProps) {
           </div>
 
           {selectedActivities.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-600">Belum ada aktiviti untuk plot ini.</p>
+            <p className="mt-4 text-sm text-slate-600">Belum ada aktiviti untuk {isAllRecordsSelected ? "semua plot" : "plot ini"}.</p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100 text-sm">
               {selectedActivities.slice(0, 8).map((activity) => (
                 <li key={activity.id} className="flex items-center justify-between gap-3 py-3">
                   <span>
                     <span className="font-medium text-slate-900">{activity.activity_date} - {activity.activity_type}</span>
+                    {isAllRecordsSelected && <span className="block text-xs text-slate-500">{records.find((record) => record.id === activity.planting_record_id)?.field_name ?? "Plot"}</span>}
                     {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
                   </span>
                   <span className="shrink-0 text-right text-xs text-slate-500">
@@ -208,7 +212,7 @@ export function FinancePage({ token }: FinancePageProps) {
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div>
             <h2 className="text-lg font-semibold">Rekod hasil tuaian</h2>
-            <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti untuk untung/rugi plot yang dipilih.</p>
+            <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti. Pilih satu plot jika mahu tambah rekod hasil baru.</p>
           </div>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
           <div className="grid grid-cols-3 gap-3">
@@ -217,7 +221,7 @@ export function FinancePage({ token }: FinancePageProps) {
             <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required />
           </div>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId}>
+          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId || isAllRecordsSelected}>
             {isSavingHarvest ? "Saving..." : "Save harvest"}
           </button>
           {harvestFormMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestFormMessage}</p>}
@@ -226,14 +230,14 @@ export function FinancePage({ token }: FinancePageProps) {
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold">Hasil tuaian plot dipilih</h3>
+          <h3 className="font-semibold">{isAllRecordsSelected ? "Hasil tuaian semua plot" : "Hasil tuaian plot dipilih"}</h3>
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
             {formatCurrency(totalRevenue)}
           </span>
         </div>
         {harvestListMessage && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestListMessage}</p>}
         {selectedHarvests.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Belum ada hasil tuaian untuk plot ini.</p>
+          <p className="mt-3 text-sm text-slate-600">Belum ada hasil tuaian untuk {isAllRecordsSelected ? "semua plot" : "plot ini"}.</p>
         ) : (
           <ul className="mt-3 divide-y divide-slate-100 text-sm">
             {selectedHarvests.slice(0, 8).map((harvest) => (
@@ -256,6 +260,7 @@ export function FinancePage({ token }: FinancePageProps) {
                   <div className="flex items-center justify-between gap-3">
                     <span>
                       <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
+                      {isAllRecordsSelected && <span className="block text-xs text-slate-500">{records.find((record) => record.id === harvest.planting_record_id)?.field_name ?? "Plot"}</span>}
                       <span className="block text-xs text-slate-500">Harga/unit: RM {harvest.selling_price_per_unit}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
@@ -285,6 +290,7 @@ function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; v
   return (
     <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
       <option value="">Select plot</option>
+      <option value={ALL_RECORDS_VALUE}>Semua plot</option>
       {records.map((record) => (
         <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
       ))}
@@ -308,5 +314,4 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
-
 
