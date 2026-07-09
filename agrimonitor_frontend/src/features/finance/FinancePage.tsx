@@ -22,7 +22,9 @@ export function FinancePage({ token }: FinancePageProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingHarvest, setIsSavingHarvest] = useState(false);
+  const [isSavingHarvestEdit, setIsSavingHarvestEdit] = useState(false);
   const [harvestForm, setHarvestForm] = useState<HarvestFormState>(emptyHarvestForm);
+  const [editHarvestForm, setEditHarvestForm] = useState<HarvestFormState>(emptyHarvestForm);
 
   async function loadData() {
     setError("");
@@ -62,9 +64,9 @@ export function FinancePage({ token }: FinancePageProps) {
   const totalRevenue = selectedHarvests.reduce((total, harvest) => total + toNumber(harvest.revenue), 0);
   const profitLoss = totalRevenue - totalCost;
 
-  function resetHarvestForm() {
+  function resetInlineHarvestEdit() {
     setEditingHarvestId(null);
-    setHarvestForm(emptyHarvestForm);
+    setEditHarvestForm(emptyHarvestForm);
     setOpenHarvestMenuId(null);
   }
 
@@ -79,13 +81,10 @@ export function FinancePage({ token }: FinancePageProps) {
     setSuccessMessage("");
     setIsSavingHarvest(true);
     try {
-      const savedHarvest = editingHarvestId
-        ? await updateHarvest(token, editingHarvestId, harvestForm)
-        : await createHarvest(token, { ...harvestForm, planting_record_id: Number(selectedRecordId) });
-
+      const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(selectedRecordId) });
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
-      resetHarvestForm();
-      setSuccessMessage(editingHarvestId ? "Hasil tuaian berjaya dikemas kini." : "Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
+      setHarvestForm(emptyHarvestForm);
+      setSuccessMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal disimpan.");
     } finally {
@@ -94,9 +93,8 @@ export function FinancePage({ token }: FinancePageProps) {
   }
 
   function startEditHarvest(harvest: Harvest) {
-    setSelectedRecordId(String(harvest.planting_record_id));
     setEditingHarvestId(harvest.id);
-    setHarvestForm({
+    setEditHarvestForm({
       harvest_date: harvest.harvest_date,
       quantity: harvest.quantity,
       unit: harvest.unit,
@@ -106,6 +104,26 @@ export function FinancePage({ token }: FinancePageProps) {
     setSuccessMessage("");
     setError("");
     setOpenHarvestMenuId(null);
+  }
+
+  async function submitHarvestEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingHarvestId) return;
+
+    const harvestId = editingHarvestId;
+    setError("");
+    setSuccessMessage("");
+    setIsSavingHarvestEdit(true);
+    try {
+      const savedHarvest = await updateHarvest(token, harvestId, editHarvestForm);
+      setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
+      resetInlineHarvestEdit();
+      setSuccessMessage("Hasil tuaian berjaya dikemas kini.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hasil tuaian gagal dikemas kini.");
+    } finally {
+      setIsSavingHarvestEdit(false);
+    }
   }
 
   async function removeHarvest(harvestId: number) {
@@ -118,7 +136,7 @@ export function FinancePage({ token }: FinancePageProps) {
     try {
       await deleteHarvest(token, harvestId);
       setHarvests((currentHarvests) => currentHarvests.filter((harvest) => harvest.id !== harvestId));
-      if (editingHarvestId === harvestId) resetHarvestForm();
+      if (editingHarvestId === harvestId) resetInlineHarvestEdit();
       setSuccessMessage("Rekod hasil tuaian berjaya dipadam.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hasil tuaian gagal dipadam.");
@@ -135,7 +153,7 @@ export function FinancePage({ token }: FinancePageProps) {
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="space-y-1 text-sm font-semibold text-slate-800">
             <span>Pilih plot untuk kira kos dan hasil</span>
-            <PlotSelect records={records} value={selectedRecordId} onChange={(value) => { setSelectedRecordId(value); resetHarvestForm(); }} />
+            <PlotSelect records={records} value={selectedRecordId} onChange={(value) => { setSelectedRecordId(value); resetInlineHarvestEdit(); }} />
           </label>
           <div className="rounded-md bg-field-50 px-3 py-2 text-sm text-slate-700">
             {selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : "Tiada plot dipilih"}
@@ -183,12 +201,9 @@ export function FinancePage({ token }: FinancePageProps) {
         </section>
 
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">{editingHarvestId ? "Edit hasil tuaian" : "Rekod hasil tuaian"}</h2>
-              <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti untuk untung/rugi plot yang dipilih.</p>
-            </div>
-            {editingHarvestId && <button className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700" type="button" onClick={resetHarvestForm}>Batal</button>}
+          <div>
+            <h2 className="text-lg font-semibold">Rekod hasil tuaian</h2>
+            <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti untuk untung/rugi plot yang dipilih.</p>
           </div>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
           <div className="grid grid-cols-3 gap-3">
@@ -198,7 +213,7 @@ export function FinancePage({ token }: FinancePageProps) {
           </div>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
           <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId}>
-            {isSavingHarvest ? "Saving..." : editingHarvestId ? "Simpan perubahan" : "Save harvest"}
+            {isSavingHarvest ? "Saving..." : "Save harvest"}
           </button>
           {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{successMessage}</p>}
         </form>
@@ -216,21 +231,39 @@ export function FinancePage({ token }: FinancePageProps) {
         ) : (
           <ul className="mt-3 divide-y divide-slate-100 text-sm">
             {selectedHarvests.slice(0, 8).map((harvest) => (
-              <li key={harvest.id} className="relative flex items-center justify-between gap-3 py-3">
-                <span>
-                  <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
-                  <span className="block text-xs text-slate-500">Harga/unit: RM {harvest.selling_price_per_unit}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  <span className="font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
-                  <button className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100" type="button" onClick={() => setOpenHarvestMenuId(openHarvestMenuId === harvest.id ? null : harvest.id)} aria-label="Menu hasil tuaian">
-                    ...
-                  </button>
-                </span>
-                {openHarvestMenuId === harvest.id && (
-                  <div className="absolute right-0 top-10 z-20 w-36 rounded-lg border border-slate-100 bg-white p-2 text-sm shadow-lg">
-                    <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => startEditHarvest(harvest)}>Edit</button>
-                    <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => void removeHarvest(harvest.id)}>Padam</button>
+              <li key={harvest.id} className="relative py-3">
+                {editingHarvestId === harvest.id ? (
+                  <form onSubmit={submitHarvestEdit} className="space-y-2 rounded-md bg-field-50 p-3">
+                    <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={editHarvestForm.harvest_date} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, harvest_date: event.target.value })} required />
+                    <div className="grid grid-cols-3 gap-2">
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Kuantiti" value={editHarvestForm.quantity} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, quantity: event.target.value })} required />
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={editHarvestForm.unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, unit: event.target.value })} required />
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={editHarvestForm.selling_price_per_unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, selling_price_per_unit: event.target.value })} required />
+                    </div>
+                    <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={editHarvestForm.notes} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, notes: event.target.value })} />
+                    <div className="flex gap-2">
+                      <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvestEdit}>{isSavingHarvestEdit ? "Menyimpan..." : "Simpan"}</button>
+                      <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={resetInlineHarvestEdit}>Batal</button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <span>
+                      <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
+                      <span className="block text-xs text-slate-500">Harga/unit: RM {harvest.selling_price_per_unit}</span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-3">
+                      <span className="font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
+                      <button className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100" type="button" onClick={() => setOpenHarvestMenuId(openHarvestMenuId === harvest.id ? null : harvest.id)} aria-label="Menu hasil tuaian">
+                        ...
+                      </button>
+                    </span>
+                    {openHarvestMenuId === harvest.id && (
+                      <div className="absolute right-0 top-10 z-20 w-36 rounded-lg border border-slate-100 bg-white p-2 text-sm shadow-lg">
+                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => startEditHarvest(harvest)}>Edit</button>
+                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => void removeHarvest(harvest.id)}>Padam</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>
@@ -269,6 +302,3 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return `RM ${value.toFixed(2)}`;
 }
-
-
-
