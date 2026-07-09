@@ -11,6 +11,7 @@ type MarketPricePageProps = {
 };
 
 const emptyFilters = { commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" };
+const INITIAL_RECORD_LIMIT = 30;
 
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
@@ -24,8 +25,10 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [isFiltering, setIsFiltering] = useState(false);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
+  const [recordLimit, setRecordLimit] = useState(INITIAL_RECORD_LIMIT);
 
   const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
+  const visiblePrices = useMemo(() => prices.slice(0, recordLimit), [prices, recordLimit]);
 
   async function loadData() {
     setError("");
@@ -33,6 +36,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const [priceData, latestData] = await Promise.all([listMarketPrices(token, filters), listLatestMarketPrices(token)]);
       setPrices(priceData);
+      setRecordLimit(INITIAL_RECORD_LIMIT);
       setLatestPrices(latestData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load market prices");
@@ -51,6 +55,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const priceData = await listMarketPrices(token, filters);
       setPrices(priceData);
+      setRecordLimit(INITIAL_RECORD_LIMIT);
       setMessage(priceData.length === 0 ? "Tiada harga pasaran dijumpai untuk filter ini." : `${priceData.length} rekod harga pasaran dijumpai.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Filter harga pasaran gagal.");
@@ -67,6 +72,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const priceData = await listMarketPrices(token, emptyFilters);
       setPrices(priceData);
+      setRecordLimit(INITIAL_RECORD_LIMIT);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal reset filter harga pasaran.");
     } finally {
@@ -82,6 +88,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const savedPrice = await createMarketPrice(token, form);
       setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
+      setRecordLimit(INITIAL_RECORD_LIMIT);
       setLatestPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)].slice(0, 3));
       setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
       setMessage("Harga pasaran berjaya disimpan dan sudah muncul dalam senarai.");
@@ -136,7 +143,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-6">
           <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
-            <span>Commodity</span>
+            <span>Komoditi</span>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Chili" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
@@ -168,7 +175,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         <div className="grid gap-5 md:grid-cols-2">
           <form onSubmit={submitPrice} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
             <h3 className="font-semibold">Add market price</h3>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Commodity" value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Komoditi" value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
             <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">Farm/Ladang</option><option value="retail">Retail/Runcit</option><option value="wholesale">Wholesale/Borong</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stable</option><option value="up">Up</option><option value="down">Down</option></select></div>
             <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
@@ -184,28 +191,87 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       )}
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold">Market price records</h3>
-          <StatusBadge label={`${prices.length} records`} tone="info" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Senarai harga pasaran</h3>
+            <p className="mt-1 text-sm text-slate-600">Paparan jadual lebih padat untuk semak banyak rekod harga.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge label={`${visiblePrices.length} dipaparkan`} tone="success" />
+            <StatusBadge label={`${prices.length} rekod`} tone="info" />
+          </div>
         </div>
         {prices.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">No market prices match this filter. Try clearing one field or press Reset.</p>
+          <p className="mt-3 text-sm text-slate-600">Tiada harga pasaran sepadan dengan filter ini. Kosongkan medan atau tekan Reset.</p>
         ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            {prices.map((price) => <PriceCard key={price.id} price={price} />)}
-          </div>
+          <>
+            <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+              <div className="max-h-[560px] overflow-auto">
+                <table className="min-w-[760px] w-full border-collapse text-sm">
+                  <thead className="sticky top-0 z-10 bg-field-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Komoditi</th>
+                      <th className="px-4 py-3 font-semibold">Jenis harga</th>
+                      <th className="px-4 py-3 text-right font-semibold">Harga</th>
+                      <th className="px-4 py-3 font-semibold">Lokasi</th>
+                      <th className="px-4 py-3 font-semibold">Tarikh</th>
+                      <th className="px-4 py-3 font-semibold">Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {visiblePrices.map((price) => <PriceRow key={price.id} price={price} />)}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {recordLimit < prices.length && (
+              <button className="mt-4 w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => setRecordLimit((currentLimit) => currentLimit + INITIAL_RECORD_LIMIT)}>
+                Papar lebih banyak rekod
+              </button>
+            )}
+          </>
         )}
       </section>
     </div>
   );
 }
 
+function PriceRow({ price }: { price: MarketPrice }) {
+  return (
+    <tr className="hover:bg-field-50/60">
+      <td className="px-4 py-3 font-semibold text-slate-950">{price.commodity_name}</td>
+      <td className="px-4 py-3 text-slate-700">{priceTypeLabel(price.price_type)}</td>
+      <td className="px-4 py-3 text-right font-bold text-slate-950">RM {price.price}</td>
+      <td className="px-4 py-3 text-slate-700">{price.location}</td>
+      <td className="px-4 py-3 text-slate-600">{price.recorded_date}</td>
+      <td className="px-4 py-3"><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></td>
+    </tr>
+  );
+}
+
+function priceTypeLabel(priceType: string) {
+  const labels: Record<string, string> = {
+    farm: "Ladang",
+    wholesale: "Borong",
+    retail: "Runcit",
+  };
+  return labels[priceType] ?? priceType;
+}
+
+function trendLabel(trend: string) {
+  const labels: Record<string, string> = {
+    up: "Naik",
+    down: "Turun",
+    stable: "Stabil",
+  };
+  return labels[trend] ?? trend;
+}
 function PriceCard({ price }: { price: MarketPrice }) {
   return (
     <article className="rounded-lg border border-field-100 bg-field-50 p-4">
-      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={price.trend} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
+      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
       <p className="mt-2 text-2xl font-bold">RM {price.price}</p>
-      <p className="text-sm text-slate-600">per {price.unit} - {price.price_type}</p>
+      <p className="text-sm text-slate-600">per {price.unit} - {priceTypeLabel(price.price_type)}</p>
       <p className="mt-2 text-sm text-slate-700">{price.location}</p>
       <p className="text-xs text-slate-500">{price.recorded_date}</p>
     </article>
