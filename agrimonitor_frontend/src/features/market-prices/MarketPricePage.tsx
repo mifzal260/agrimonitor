@@ -146,7 +146,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
           <label className="space-y-1 text-sm font-medium text-slate-700">
             <span>Price type</span>
             <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={filters.price_type} onChange={(event) => setFilters({ ...filters, price_type: event.target.value })}>
-              <option value="">All types</option><option value="retail">Retail</option><option value="wholesale">Wholesale</option>
+              <option value="">All types</option><option value="farm">Farm/Ladang</option><option value="retail">Retail/Runcit</option><option value="wholesale">Wholesale/Borong</option>
             </select>
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
@@ -170,13 +170,13 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
             <h3 className="font-semibold">Add market price</h3>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Commodity" value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
-            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="retail">Retail</option><option value="wholesale">Wholesale</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stable</option><option value="up">Up</option><option value="down">Down</option></select></div>
+            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">Farm/Ladang</option><option value="retail">Retail/Runcit</option><option value="wholesale">Wholesale/Borong</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stable</option><option value="up">Up</option><option value="down">Down</option></select></div>
             <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
             <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? "Saving..." : "Save price"}</button>
           </form>
           <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
             <h3 className="font-semibold">Import CSV</h3>
-            <p className="text-sm text-slate-600">Required columns: commodity_name, location, price_type, price, unit, recorded_date. Optional: trend.</p>
+            <p className="text-sm text-slate-600">Required columns: commodity_name, location, price_type, price, unit, recorded_date. Optional: trend. Price type boleh guna farm, wholesale, atau retail.</p>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
             <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? "Importing..." : "Import CSV"}</button>
           </form>
