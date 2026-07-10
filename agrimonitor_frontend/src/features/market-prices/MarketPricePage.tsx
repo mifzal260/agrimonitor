@@ -30,7 +30,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 
   const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
   const visiblePrices = useMemo(() => prices.slice(0, recordLimit), [prices, recordLimit]);
-  const locationOptions = useMemo(() => uniqueOptions(allPrices.map((price) => price.location)), [allPrices]);
+  const commodityOptions = useMemo(() => uniqueOptions(allPrices.map((price) => price.commodity_name)), [allPrices]);
+  const weekOptions = useMemo(() => buildWeekOptions(allPrices.map((price) => price.recorded_date)), [allPrices]);
+  const selectedWeekValue = filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "";
 
   async function loadData() {
     setError("");
@@ -152,28 +154,26 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
           <PriceTypeButton label="Runcit" description="Harga pengguna" value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
         </div>
 
-        <div className="mt-4 grid gap-3 rounded-lg border border-field-100 bg-field-50 p-4 md:grid-cols-5">
+        <div className="mt-4 grid gap-3 rounded-lg border border-field-100 bg-field-50 p-4 md:grid-cols-[1.2fr_1fr_auto]">
           <label className="space-y-1 text-sm font-medium text-slate-700">
             <span>Komoditi</span>
-            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" placeholder="Contoh: Cili hijau" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
-          </label>
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Lokasi</span>
-            <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })}>
-              <option value="">Semua lokasi</option>
-              {locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}
+            <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })}>
+              <option value="">Semua komoditi</option>
+              {commodityOptions.map((commodity) => <option key={commodity} value={commodity}>{commodity}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Dari tarikh</span>
-            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" type="date" value={filters.date_from} onChange={(event) => setFilters({ ...filters, date_from: event.target.value })} />
-          </label>
-          <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Hingga tarikh</span>
-            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" type="date" value={filters.date_to} onChange={(event) => setFilters({ ...filters, date_to: event.target.value })} />
+            <span>Minggu harga</span>
+            <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={selectedWeekValue} onChange={(event) => {
+              const [date_from, date_to] = event.target.value.split("|");
+              setFilters({ ...filters, date_from: date_from ?? "", date_to: date_to ?? "", location: "" });
+            }}>
+              <option value="">Semua minggu</option>
+              {weekOptions.map((week) => <option key={week.value} value={week.value}>{week.label}</option>)}
+            </select>
           </label>
           <div className="flex items-end gap-2">
-            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isFiltering}>{isFiltering ? "Menapis..." : "Tapis"}</button>
+            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 md:min-w-28" type="submit" disabled={isFiltering}>{isFiltering ? "Menapis..." : "Tapis"}</button>
             <button className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>Reset</button>
           </div>
         </div>
@@ -281,6 +281,41 @@ function PriceCard({ price }: { price: MarketPrice }) {
 
 function uniqueOptions(values: string[]) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
+}
+
+function buildWeekOptions(dates: string[]) {
+  const weekMap = new Map<string, { from: string; to: string }>();
+
+  dates.filter(Boolean).forEach((dateValue) => {
+    const date = new Date(`${dateValue}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return;
+
+    const day = date.getDay() === 0 ? 7 : date.getDay();
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - day + 1);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    const from = formatDateInput(monday);
+    const to = formatDateInput(sunday);
+    weekMap.set(`${from}|${to}`, { from, to });
+  });
+
+  return Array.from(weekMap.entries())
+    .sort((left, right) => right[1].from.localeCompare(left[1].from))
+    .map(([value, week]) => ({ value, label: `${formatDisplayDate(week.from)} - ${formatDisplayDate(week.to)}` }));
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(dateValue: string) {
+  const [year, month, day] = dateValue.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function priceTypeLabel(priceType: string) {
