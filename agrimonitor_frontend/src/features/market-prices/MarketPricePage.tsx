@@ -15,6 +15,7 @@ const INITIAL_RECORD_LIMIT = 30;
 
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
+  const [allPrices, setAllPrices] = useState<MarketPrice[]>([]);
   const [latestPrices, setLatestPrices] = useState<MarketPrice[]>([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [form, setForm] = useState({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
@@ -29,13 +30,15 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 
   const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
   const visiblePrices = useMemo(() => prices.slice(0, recordLimit), [prices, recordLimit]);
+  const locationOptions = useMemo(() => uniqueOptions(allPrices.map((price) => price.location)), [allPrices]);
 
   async function loadData() {
     setError("");
     setIsLoading(true);
     try {
-      const [priceData, latestData] = await Promise.all([listMarketPrices(token, filters), listLatestMarketPrices(token)]);
+      const [priceData, latestData] = await Promise.all([listMarketPrices(token, emptyFilters), listLatestMarketPrices(token)]);
       setPrices(priceData);
+      setAllPrices(priceData);
       setRecordLimit(INITIAL_RECORD_LIMIT);
       setLatestPrices(latestData);
     } catch (err) {
@@ -72,6 +75,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const priceData = await listMarketPrices(token, emptyFilters);
       setPrices(priceData);
+      setAllPrices(priceData);
       setRecordLimit(INITIAL_RECORD_LIMIT);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal reset filter harga pasaran.");
@@ -88,6 +92,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const savedPrice = await createMarketPrice(token, form);
       setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
+      setAllPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setRecordLimit(INITIAL_RECORD_LIMIT);
       setLatestPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)].slice(0, 3));
       setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
@@ -128,12 +133,12 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Market prices</h2>
-            <p className="mt-1 text-sm text-slate-600">Review demo commodity prices and filter by commodity, location, type, and date.</p>
+            <h2 className="text-lg font-semibold">Panduan harga harian</h2>
+            <p className="mt-1 text-sm text-slate-600">Semak harga ladang, borong, dan runcit mengikut komoditi, lokasi, dan tarikh.</p>
           </div>
-          <StatusBadge label={`${latestPrices.length} latest`} tone="info" />
+          <StatusBadge label={`${latestPrices.length} terkini`} tone="info" />
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {latestPrices.slice(0, 3).map((price) => <PriceCard key={price.id} price={price} />)}
@@ -141,32 +146,35 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       </section>
 
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-6">
-          <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
+        <div className="grid gap-3 md:grid-cols-3">
+          <PriceTypeButton label="Ladang" description="Harga di peringkat ladang" value="farm" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+          <PriceTypeButton label="Borong" description="Harga pemborong" value="wholesale" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+          <PriceTypeButton label="Runcit" description="Harga pengguna" value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+        </div>
+
+        <div className="mt-4 grid gap-3 rounded-lg border border-field-100 bg-field-50 p-4 md:grid-cols-5">
+          <label className="space-y-1 text-sm font-medium text-slate-700">
             <span>Komoditi</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Chili" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
-          </label>
-          <label className="space-y-1 text-sm font-medium text-slate-700 md:col-span-1">
-            <span>Location</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Example: Kedah" value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })} />
+            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" placeholder="Contoh: Cili hijau" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })} />
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Price type</span>
-            <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={filters.price_type} onChange={(event) => setFilters({ ...filters, price_type: event.target.value })}>
-              <option value="">All types</option><option value="farm">Farm/Ladang</option><option value="retail">Retail/Runcit</option><option value="wholesale">Wholesale/Borong</option>
+            <span>Lokasi</span>
+            <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })}>
+              <option value="">Semua lokasi</option>
+              {locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>From date</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={filters.date_from} onChange={(event) => setFilters({ ...filters, date_from: event.target.value })} />
+            <span>Dari tarikh</span>
+            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" type="date" value={filters.date_from} onChange={(event) => setFilters({ ...filters, date_from: event.target.value })} />
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>To date</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={filters.date_to} onChange={(event) => setFilters({ ...filters, date_to: event.target.value })} />
+            <span>Hingga tarikh</span>
+            <input className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" type="date" value={filters.date_to} onChange={(event) => setFilters({ ...filters, date_to: event.target.value })} />
           </label>
           <div className="flex items-end gap-2">
-            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isFiltering}>{isFiltering ? "Filtering..." : "Filter"}</button>
-            <button className="min-h-10 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>Reset</button>
+            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isFiltering}>{isFiltering ? "Menapis..." : "Tapis"}</button>
+            <button className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>Reset</button>
           </div>
         </div>
       </form>
@@ -174,18 +182,18 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       {user.role === "admin" && (
         <div className="grid gap-5 md:grid-cols-2">
           <form onSubmit={submitPrice} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold">Add market price</h3>
+            <h3 className="font-semibold">Tambah harga pasaran</h3>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Komoditi" value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Location" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
-            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">Farm/Ladang</option><option value="retail">Retail/Runcit</option><option value="wholesale">Wholesale/Borong</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stable</option><option value="up">Up</option><option value="down">Down</option></select></div>
-            <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Price" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? "Saving..." : "Save price"}</button>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Lokasi" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
+            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">Ladang</option><option value="retail">Runcit</option><option value="wholesale">Borong</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stabil</option><option value="up">Naik</option><option value="down">Turun</option></select></div>
+            <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? "Menyimpan..." : "Simpan harga"}</button>
           </form>
           <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
             <h3 className="font-semibold">Import CSV</h3>
             <p className="text-sm text-slate-600">Required columns: commodity_name, location, price_type, price, unit, recorded_date. Optional: trend. Price type boleh guna farm, wholesale, atau retail.</p>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? "Importing..." : "Import CSV"}</button>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? "Mengimport..." : "Import CSV"}</button>
           </form>
         </div>
       )}
@@ -236,6 +244,16 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   );
 }
 
+function PriceTypeButton({ label, description, value, currentValue, onSelect }: { label: string; description: string; value: string; currentValue: string; onSelect: (value: string) => void }) {
+  const isActive = currentValue === value;
+  return (
+    <button className={`rounded-lg border p-4 text-left transition ${isActive ? "border-field-700 bg-field-700 text-white shadow-sm" : "border-field-100 bg-field-50 text-slate-900 hover:border-field-300"}`} type="button" onClick={() => onSelect(isActive ? "" : value)}>
+      <span className="block text-base font-semibold">{label}</span>
+      <span className={`mt-1 block text-sm ${isActive ? "text-field-50" : "text-slate-600"}`}>{description}</span>
+    </button>
+  );
+}
+
 function PriceRow({ price }: { price: MarketPrice }) {
   return (
     <tr className="hover:bg-field-50/60">
@@ -247,6 +265,22 @@ function PriceRow({ price }: { price: MarketPrice }) {
       <td className="px-4 py-3"><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></td>
     </tr>
   );
+}
+
+function PriceCard({ price }: { price: MarketPrice }) {
+  return (
+    <article className="rounded-lg border border-field-100 bg-field-50 p-4">
+      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
+      <p className="mt-2 text-2xl font-bold">RM {price.price}</p>
+      <p className="text-sm text-slate-600">per {price.unit} - {priceTypeLabel(price.price_type)}</p>
+      <p className="mt-2 text-sm text-slate-700">{price.location}</p>
+      <p className="text-xs text-slate-500">{price.recorded_date}</p>
+    </article>
+  );
+}
+
+function uniqueOptions(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
 }
 
 function priceTypeLabel(priceType: string) {
@@ -265,15 +299,4 @@ function trendLabel(trend: string) {
     stable: "Stabil",
   };
   return labels[trend] ?? trend;
-}
-function PriceCard({ price }: { price: MarketPrice }) {
-  return (
-    <article className="rounded-lg border border-field-100 bg-field-50 p-4">
-      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
-      <p className="mt-2 text-2xl font-bold">RM {price.price}</p>
-      <p className="text-sm text-slate-600">per {price.unit} - {priceTypeLabel(price.price_type)}</p>
-      <p className="mt-2 text-sm text-slate-700">{price.location}</p>
-      <p className="text-xs text-slate-500">{price.recorded_date}</p>
-    </article>
-  );
 }
