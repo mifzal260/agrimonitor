@@ -148,7 +148,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       </section>
 
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">          <PriceTypeButton label="Semua" description="Semua jenis harga" value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label="Ladang" description="Harga di peringkat ladang" value="farm" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label="Borong" description="Harga pemborong" value="wholesale" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label="Runcit" description="Harga pengguna" value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
@@ -247,7 +247,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 function PriceTypeButton({ label, description, value, currentValue, onSelect }: { label: string; description: string; value: string; currentValue: string; onSelect: (value: string) => void }) {
   const isActive = currentValue === value;
   return (
-    <button className={`rounded-lg border p-4 text-left transition ${isActive ? "border-field-700 bg-field-700 text-white shadow-sm" : "border-field-100 bg-field-50 text-slate-900 hover:border-field-300"}`} type="button" onClick={() => onSelect(isActive ? "" : value)}>
+    <button className={`rounded-lg border p-4 text-left transition ${isActive ? "border-field-700 bg-field-700 text-white shadow-sm" : "border-field-100 bg-field-50 text-slate-900 hover:border-field-300"}`} type="button" onClick={() => onSelect(value)}>
       <span className="block text-base font-semibold">{label}</span>
       <span className={`mt-1 block text-sm ${isActive ? "text-field-50" : "text-slate-600"}`}>{description}</span>
     </button>
