@@ -1,6 +1,3 @@
-from datetime import date
-from decimal import Decimal
-
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,7 +6,6 @@ from app.db import base as _models
 from app.db.database import SessionLocal
 from app.models.crop import Crop
 from app.models.disease_rule import DiseaseRule, DiseaseRuleSymptom
-from app.models.market_price import MarketPrice
 from app.models.symptom import Symptom
 
 
@@ -82,21 +78,6 @@ def seed_disease_rules(db: Session, crops: dict[str, Crop], symptoms: dict[str, 
             db.add(DiseaseRuleSymptom(disease_rule_id=rule.id, symptom_id=symptoms[symptom_name].id))
 
 
-def seed_market_prices(db: Session, crops: dict[str, Crop]) -> None:
-    demo_prices = [
-        MarketPrice(crop_id=crops["Chili"].id, commodity_name="Chili", location="Kuala Lumpur", price_type="retail", price=Decimal("12.50"), unit="kg", recorded_date=date(2026, 7, 1), trend="up"),
-        MarketPrice(crop_id=crops["Tomato"].id, commodity_name="Tomato", location="Selangor", price_type="wholesale", price=Decimal("4.80"), unit="kg", recorded_date=date(2026, 7, 1), trend="stable"),
-        MarketPrice(crop_id=crops["Cucumber"].id, commodity_name="Cucumber", location="Johor", price_type="retail", price=Decimal("3.20"), unit="kg", recorded_date=date(2026, 7, 1), trend="down"),
-    ]
-    existing = {
-        (price.commodity_name, price.location, price.price_type, price.recorded_date)
-        for price in db.scalars(select(MarketPrice)).all()
-    }
-    for price in demo_prices:
-        key = (price.commodity_name, price.location, price.price_type, price.recorded_date)
-        if key not in existing:
-            db.add(price)
-
 
 def run_seed() -> None:
     db = SessionLocal()
@@ -104,7 +85,6 @@ def run_seed() -> None:
         crops = seed_crops(db)
         symptoms = seed_symptoms(db)
         seed_disease_rules(db, crops, symptoms)
-        seed_market_prices(db, crops)
         db.commit()
     except Exception:
         db.rollback()
