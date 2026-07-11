@@ -41,7 +41,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
         <p className="text-sm font-semibold uppercase text-field-700">AgriMonitor</p>
         <h1 className="mt-2 text-3xl font-bold">{view === "login" ? "Login" : "Register"}</h1>
         <p className="mt-3 text-sm leading-6 text-slate-700">
-          Access your farm monitoring workspace. The first registered account becomes admin for demo setup.
+          Access your farm monitoring workspace. The first registered account becomes the system administrator.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg border border-field-100 bg-white p-5 shadow-sm">

@@ -9,7 +9,7 @@ Dokumen ini menjadi panduan kerja berfasa untuk membina AgriMonitor secara profe
 3. Jangan tambah ciri yang tidak diminta.
 4. Jangan ubah tech stack tanpa arahan.
 5. Jangan buat AI diagnosis, IoT, hardware integration, atau external API untuk MVP.
-6. Gunakan seed/demo data untuk symptoms, disease rules, dan market prices.
+6. Gunakan data asas untuk simptom dan peraturan penyakit, serta data CSV rasmi untuk harga pasaran.
 7. Utamakan sistem yang berfungsi, bersih, dan mudah difahami.
 
 ## Fasa 1: Planning and Architecture
@@ -114,4 +114,3 @@ Hasil yang perlu ada:
 - Improve UI.
 - Update README.
 - Add Render + Neon deployment notes.
-

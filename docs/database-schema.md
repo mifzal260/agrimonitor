@@ -68,7 +68,7 @@ python -m app.db.seed
 
 Seed data includes:
 
-- Crops: Chili, Tomato, Cucumber.
+- Crops: Cili Hijau, Cili Merah Kulai / Kulai Hibrid, Cili Merah Minyak, Timun Hijau, Tomato (Tanah Tinggi).
 - Symptoms: Yellow leaves, Brown spots, Wilting, Leaf curl.
 - Disease rules: low, medium, and high risk examples.
-- Market prices: demo prices for Chili, Tomato, and Cucumber.
+- Market prices: data komoditi rasmi yang diimport melalui CSV.

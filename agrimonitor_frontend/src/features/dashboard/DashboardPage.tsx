@@ -90,7 +90,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">Price trend</h2>
-              <p className="mt-1 text-sm text-slate-600">Demo market prices from seeded/admin data.</p>
+              <p className="mt-1 text-sm text-slate-600">Trend harga berdasarkan rekod pasaran terkini.</p>
             </div>
             <StatusBadge label="Recharts" tone="info" />
           </div>

@@ -67,10 +67,9 @@ Jangan implement:
 - Backend mesti enforce permission.
 - User hanya boleh akses rekod sendiri.
 - Admin boleh manage master data.
-- Gunakan seed/demo data.
+- Gunakan data asas yang diperlukan dan data harga komoditi rasmi.
 - Code mesti bersih dan mudah difahami.
 
 ## Status
 
 Skop projek disahkan sebagai MVP AgriMonitor. Langkah seterusnya hanya boleh dibuat selepas pengguna beri arahan `continue` atau `next`.
-

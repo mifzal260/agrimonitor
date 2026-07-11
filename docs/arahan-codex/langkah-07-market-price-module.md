@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 7 implements the market price module using seed/demo data and manual CSV import. No external market API is used.
+Phase 7 implements the market price module using official commodity data and manual CSV import. No external market API is used.
 
 ## Added Backend
 

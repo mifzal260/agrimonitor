@@ -81,7 +81,7 @@ VITE_API_BASE_URL=<backend render URL>/api/v1
 - Change `JWT_SECRET_KEY` to a strong random value.
 - Set `CORS_ORIGINS` to the exact frontend URL.
 - Run Alembic migration before using the app.
-- Run seed data once for demo master data.
+- Run seed data for required master data.
 - Do not expose Neon password in frontend code.
 - Do not commit `.env` files.
 

@@ -394,7 +394,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         </div>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
           <span>Catatan</span>
-          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Demo tanaman cili, 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
+          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Contoh: Tanaman cili di kawasan 0.25 hektar" value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
         </label>
         <button className="w-full rounded-md bg-field-700 px-4 py-3 text-base font-bold text-white shadow-sm hover:bg-field-800 disabled:opacity-60" type="submit" disabled={isSavingPlanting}>{isSavingPlanting ? "Sedang menyimpan..." : "Simpan rekod tanaman"}</button>
       </form>
@@ -817,4 +817,3 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
