@@ -74,8 +74,7 @@ def update_record(record_id: int, payload: PlantingRecordUpdate, db: Session = D
 @router.delete("/planting-records/{record_id}", status_code=204)
 def delete_record(record_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> Response:
     record = get_owned_planting_record(db, record_id, current_user.id)
-    db.delete(record)
-    db.commit()
+    delete_planting_record(db, record)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
