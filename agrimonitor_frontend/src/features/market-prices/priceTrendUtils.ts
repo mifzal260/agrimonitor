@@ -17,6 +17,14 @@ export type PriceSummary = {
   stats: Record<"up" | "down" | "stable", number>;
 };
 
+export type PriceLevel = "farm" | "wholesale" | "retail";
+
+export type CommodityPriceGroup = {
+  commodityName: string;
+  levels: Record<PriceLevel, PriceHighlight | null>;
+  latestDate: string;
+};
+
 export function buildPriceSummary(records: MarketPrice[], limit = 6): PriceSummary {
   const grouped = groupByPriceSeries(records);
   const latest = Array.from(grouped.values()).map(toPriceHighlight);
@@ -43,6 +51,69 @@ export function buildPriceSummary(records: MarketPrice[], limit = 6): PriceSumma
   };
 }
 
+export function buildCommodityPriceGroups(
+  records: MarketPrice[],
+  historyRecords: MarketPrice[] = records,
+): CommodityPriceGroup[] {
+  const historicalSeries = groupByPriceSeries(historyRecords);
+  const seriesHighlights = Array.from(groupByPriceSeries(records).entries()).map(([key, currentRecords]) => {
+    const current = currentRecords[0];
+    const previous = (historicalSeries.get(key) ?? []).find(
+      (record) => record.recorded_date < current.recorded_date,
+    ) ?? null;
+    return createPriceHighlight(current, previous);
+  });
+  const commodities = new Map<string, CommodityPriceGroup>();
+
+  seriesHighlights.forEach((highlight) => {
+    if (!isPriceLevel(highlight.current.price_type)) return;
+
+    const key = highlight.current.commodity_name.trim().toLocaleLowerCase();
+    const group = commodities.get(key) ?? {
+      commodityName: highlight.current.commodity_name,
+      levels: { farm: null, wholesale: null, retail: null },
+      latestDate: highlight.current.recorded_date,
+    };
+    const existingLevel = group.levels[highlight.current.price_type];
+
+    if (!existingLevel || compareDates(highlight.current, existingLevel.current) > 0) {
+      group.levels[highlight.current.price_type] = highlight;
+    }
+    if (highlight.current.recorded_date > group.latestDate) {
+      group.latestDate = highlight.current.recorded_date;
+    }
+    commodities.set(key, group);
+  });
+
+  return Array.from(commodities.values()).sort((left, right) =>
+    left.commodityName.localeCompare(right.commodityName, "ms"),
+  );
+}
+
+export function selectPrimaryPrice(group: CommodityPriceGroup, selectedType: string): PriceHighlight | null {
+  if (isPriceLevel(selectedType)) {
+    return group.levels[selectedType];
+  }
+  return group.levels.retail ?? group.levels.wholesale ?? group.levels.farm;
+}
+
+export function calculateLevelDifference(
+  from: PriceHighlight | null,
+  to: PriceHighlight | null,
+): { amount: number; percent: number | null } | null {
+  if (!from || !to) return null;
+
+  const fromPrice = Number(from.current.price);
+  const toPrice = Number(to.current.price);
+  if (!Number.isFinite(fromPrice) || !Number.isFinite(toPrice)) return null;
+
+  const amount = toPrice - fromPrice;
+  return {
+    amount,
+    percent: fromPrice === 0 ? null : (amount / fromPrice) * 100,
+  };
+}
+
 function groupByPriceSeries(records: MarketPrice[]) {
   const grouped = new Map<string, MarketPrice[]>();
   records.forEach((record) => {
@@ -60,6 +131,10 @@ function groupByPriceSeries(records: MarketPrice[]) {
 function toPriceHighlight(records: MarketPrice[]): PriceHighlight {
   const current = records[0];
   const previous = records.find((record) => record.recorded_date < current.recorded_date) ?? null;
+  return createPriceHighlight(current, previous);
+}
+
+function createPriceHighlight(current: MarketPrice, previous: MarketPrice | null): PriceHighlight {
   if (!previous) return { current, previous, changeAmount: null, changePercent: null, trend: "unavailable" };
 
   const currentPrice = Number(current.price);
@@ -80,4 +155,8 @@ function compareHighlights(left: PriceHighlight, right: PriceHighlight) {
 
 function compareDates(left: MarketPrice, right: MarketPrice) {
   return left.recorded_date.localeCompare(right.recorded_date) || left.id - right.id;
+}
+
+function isPriceLevel(value: string): value is PriceLevel {
+  return value === "farm" || value === "wholesale" || value === "retail";
 }

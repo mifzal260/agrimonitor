@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { createMarketPrice, importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
-import { StatusBadge } from "../../components/StatusBadge";
 import type { User } from "../../types/auth";
 import type { MarketPrice } from "../../types/marketPrice";
+import { CommodityPriceAccordionList } from "./CommodityPriceAccordionList";
 import { DailyPriceSummary } from "./DailyPriceSummary";
-import { buildPriceSummary } from "./priceTrendUtils";
+import { buildCommodityPriceGroups, buildPriceSummary } from "./priceTrendUtils";
 
 type MarketPricePageProps = {
   token: string;
@@ -13,7 +13,6 @@ type MarketPricePageProps = {
 };
 
 const emptyFilters = { commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" };
-const INITIAL_RECORD_LIMIT = 30;
 
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
@@ -27,14 +26,14 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [isFiltering, setIsFiltering] = useState(false);
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
-  const [recordLimit, setRecordLimit] = useState(INITIAL_RECORD_LIMIT);
+  const [appliedPriceType, setAppliedPriceType] = useState("");
 
   const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
-  const visiblePrices = useMemo(() => prices.slice(0, recordLimit), [prices, recordLimit]);
   const commodityOptions = useMemo(() => uniqueOptions(allPrices.map((price) => price.commodity_name)), [allPrices]);
   const weekOptions = useMemo(() => buildWeekOptions(allPrices.map((price) => price.recorded_date)), [allPrices]);
   const selectedWeekValue = filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "";
   const priceSummary = useMemo(() => buildPriceSummary(allPrices), [allPrices]);
+  const commodityGroups = useMemo(() => buildCommodityPriceGroups(prices, allPrices), [prices]);
 
   async function loadData() {
     setError("");
@@ -43,7 +42,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       const priceData = await listMarketPrices(token, emptyFilters);
       setPrices(priceData);
       setAllPrices(priceData);
-      setRecordLimit(INITIAL_RECORD_LIMIT);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load market prices");
     } finally {
@@ -59,9 +57,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     setMessage("");
     setIsFiltering(true);
     try {
-      const priceData = await listMarketPrices(token, filters);
+      const priceData = await listMarketPrices(token, { ...filters, price_type: "" });
       setPrices(priceData);
-      setRecordLimit(INITIAL_RECORD_LIMIT);
+      setAppliedPriceType(filters.price_type);
       setMessage(priceData.length === 0 ? "Tiada harga pasaran dijumpai untuk filter ini." : `${priceData.length} rekod harga pasaran dijumpai.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Filter harga pasaran gagal.");
@@ -72,6 +70,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 
   async function resetFilters() {
     setFilters(emptyFilters);
+    setAppliedPriceType("");
     setError("");
     setMessage("");
     setIsFiltering(true);
@@ -79,7 +78,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       const priceData = await listMarketPrices(token, emptyFilters);
       setPrices(priceData);
       setAllPrices(priceData);
-      setRecordLimit(INITIAL_RECORD_LIMIT);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal reset filter harga pasaran.");
     } finally {
@@ -96,7 +94,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       const savedPrice = await createMarketPrice(token, form);
       setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setAllPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
-      setRecordLimit(INITIAL_RECORD_LIMIT);
       setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
       setMessage("Harga pasaran berjaya disimpan dan sudah muncul dalam senarai.");
     } catch (err) {
@@ -168,6 +165,8 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         </div>
       </form>
 
+      <CommodityPriceAccordionList groups={commodityGroups} selectedPriceType={appliedPriceType} />
+
       {user.role === "admin" && (
         <div className="grid gap-5 md:grid-cols-2">
           <form onSubmit={submitPrice} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -187,48 +186,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         </div>
       )}
 
-      <section className="scroll-mt-24 rounded-lg border border-field-100 bg-white p-4 shadow-sm" id="senarai-harga-pasaran">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-semibold">Senarai harga pasaran</h3>
-            <p className="mt-1 text-sm text-slate-600">Paparan jadual lebih padat untuk semak banyak rekod harga.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <StatusBadge label={`${visiblePrices.length} dipaparkan`} tone="success" />
-            <StatusBadge label={`${prices.length} rekod`} tone="info" />
-          </div>
-        </div>
-        {prices.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Tiada harga pasaran sepadan dengan filter ini. Kosongkan medan atau tekan Reset.</p>
-        ) : (
-          <>
-            <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
-              <div className="max-h-[560px] overflow-auto">
-                <table className="min-w-[760px] w-full border-collapse text-sm">
-                  <thead className="sticky top-0 z-10 bg-field-50 text-left text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Komoditi</th>
-                      <th className="px-4 py-3 font-semibold">Jenis harga</th>
-                      <th className="px-4 py-3 text-right font-semibold">Harga</th>
-                      <th className="px-4 py-3 font-semibold">Lokasi</th>
-                      <th className="px-4 py-3 font-semibold">Tarikh</th>
-                      <th className="px-4 py-3 font-semibold">Trend</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {visiblePrices.map((price) => <PriceRow key={price.id} price={price} />)}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {recordLimit < prices.length && (
-              <button className="mt-4 w-full rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => setRecordLimit((currentLimit) => currentLimit + INITIAL_RECORD_LIMIT)}>
-                Papar lebih banyak rekod
-              </button>
-            )}
-          </>
-        )}
-      </section>
+
     </div>
   );
 }
@@ -240,19 +198,6 @@ function PriceTypeButton({ label, description, value, currentValue, onSelect }: 
       <span className="block text-base font-semibold">{label}</span>
       <span className={`mt-1 block text-sm ${isActive ? "text-field-50" : "text-slate-600"}`}>{description}</span>
     </button>
-  );
-}
-
-function PriceRow({ price }: { price: MarketPrice }) {
-  return (
-    <tr className="hover:bg-field-50/60">
-      <td className="px-4 py-3 font-semibold text-slate-950">{price.commodity_name}</td>
-      <td className="px-4 py-3 text-slate-700">{priceTypeLabel(price.price_type)}</td>
-      <td className="px-4 py-3 text-right font-bold text-slate-950">RM {price.price}</td>
-      <td className="px-4 py-3 text-slate-700">{price.location}</td>
-      <td className="px-4 py-3 text-slate-600">{price.recorded_date}</td>
-      <td className="px-4 py-3"><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></td>
-    </tr>
   );
 }
 
@@ -293,22 +238,4 @@ function formatDateInput(date: Date) {
 function formatDisplayDate(dateValue: string) {
   const [year, month, day] = dateValue.split("-");
   return `${day}/${month}/${year}`;
-}
-
-function priceTypeLabel(priceType: string) {
-  const labels: Record<string, string> = {
-    farm: "Ladang",
-    wholesale: "Borong",
-    retail: "Runcit",
-  };
-  return labels[priceType] ?? priceType;
-}
-
-function trendLabel(trend: string) {
-  const labels: Record<string, string> = {
-    up: "Naik",
-    down: "Turun",
-    stable: "Stabil",
-  };
-  return labels[trend] ?? trend;
 }
