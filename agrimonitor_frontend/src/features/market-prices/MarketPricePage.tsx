@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { createMarketPrice, importMarketPricesCsv, listLatestMarketPrices, listMarketPrices } from "../../api/marketPrices";
+import { createMarketPrice, importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { User } from "../../types/auth";
 import type { MarketPrice } from "../../types/marketPrice";
+import { DailyPriceSummary } from "./DailyPriceSummary";
+import { buildPriceSummary } from "./priceTrendUtils";
 
 type MarketPricePageProps = {
   token: string;
@@ -16,7 +18,6 @@ const INITIAL_RECORD_LIMIT = 30;
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [allPrices, setAllPrices] = useState<MarketPrice[]>([]);
-  const [latestPrices, setLatestPrices] = useState<MarketPrice[]>([]);
   const [filters, setFilters] = useState(emptyFilters);
   const [form, setForm] = useState({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -33,16 +34,16 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const commodityOptions = useMemo(() => uniqueOptions(allPrices.map((price) => price.commodity_name)), [allPrices]);
   const weekOptions = useMemo(() => buildWeekOptions(allPrices.map((price) => price.recorded_date)), [allPrices]);
   const selectedWeekValue = filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "";
+  const priceSummary = useMemo(() => buildPriceSummary(allPrices), [allPrices]);
 
   async function loadData() {
     setError("");
     setIsLoading(true);
     try {
-      const [priceData, latestData] = await Promise.all([listMarketPrices(token, emptyFilters), listLatestMarketPrices(token)]);
+      const priceData = await listMarketPrices(token, emptyFilters);
       setPrices(priceData);
       setAllPrices(priceData);
       setRecordLimit(INITIAL_RECORD_LIMIT);
-      setLatestPrices(latestData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load market prices");
     } finally {
@@ -96,7 +97,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setAllPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setRecordLimit(INITIAL_RECORD_LIMIT);
-      setLatestPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)].slice(0, 3));
       setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
       setMessage("Harga pasaran berjaya disimpan dan sudah muncul dalam senarai.");
     } catch (err) {
@@ -134,18 +134,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {message && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>}
 
-      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Panduan harga harian</h2>
-            <p className="mt-1 text-sm text-slate-600">Semak harga ladang, borong, dan runcit mengikut komoditi, lokasi, dan tarikh.</p>
-          </div>
-          <StatusBadge label={`${latestPrices.length} terkini`} tone="info" />
-        </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {latestPrices.slice(0, 3).map((price) => <PriceCard key={price.id} price={price} />)}
-        </div>
-      </section>
+      <DailyPriceSummary summary={priceSummary} onViewAll={() => document.getElementById("senarai-harga-pasaran")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-4">          <PriceTypeButton label="Semua" description="Semua jenis harga" value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
@@ -198,7 +187,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
         </div>
       )}
 
-      <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+      <section className="scroll-mt-24 rounded-lg border border-field-100 bg-white p-4 shadow-sm" id="senarai-harga-pasaran">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="font-semibold">Senarai harga pasaran</h3>
@@ -264,18 +253,6 @@ function PriceRow({ price }: { price: MarketPrice }) {
       <td className="px-4 py-3 text-slate-600">{price.recorded_date}</td>
       <td className="px-4 py-3"><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></td>
     </tr>
-  );
-}
-
-function PriceCard({ price }: { price: MarketPrice }) {
-  return (
-    <article className="rounded-lg border border-field-100 bg-field-50 p-4">
-      <div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{price.commodity_name}</h3><StatusBadge label={trendLabel(price.trend)} tone={price.trend === "up" ? "success" : price.trend === "down" ? "warning" : "info"} /></div>
-      <p className="mt-2 text-2xl font-bold">RM {price.price}</p>
-      <p className="text-sm text-slate-600">per {price.unit} - {priceTypeLabel(price.price_type)}</p>
-      <p className="mt-2 text-sm text-slate-700">{price.location}</p>
-      <p className="text-xs text-slate-500">{price.recorded_date}</p>
-    </article>
   );
 }
 
