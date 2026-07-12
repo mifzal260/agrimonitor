@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { getDashboardSummary } from "../../api/dashboard";
+import { listMarketPrices } from "../../api/marketPrices";
 import { listPlantingRecords, listSymptomRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { DashboardSummary } from "../../types/dashboard";
+import type { MarketPrice } from "../../types/marketPrice";
 import type { PlantingRecord, SymptomRecord } from "../../types/monitoring";
+import { CommodityPriceTrend } from "./CommodityPriceTrend";
 
 type DashboardPageProps = {
   token: string;
@@ -38,28 +40,21 @@ export function DashboardPage({ token }: DashboardPageProps) {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [records, setRecords] = useState<PlantingRecord[]>([]);
   const [symptomRecords, setSymptomRecords] = useState<SymptomRecord[]>([]);
+  const [marketPrices, setMarketPrices] = useState<MarketPrice[]>([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getDashboardSummary(token), listPlantingRecords(token), listSymptomRecords(token)])
-      .then(([summaryData, recordData, symptomData]) => {
+    Promise.all([getDashboardSummary(token), listPlantingRecords(token), listSymptomRecords(token), listMarketPrices(token)])
+      .then(([summaryData, recordData, symptomData, marketPriceData]) => {
         setSummary(summaryData);
         setRecords(recordData);
         setSymptomRecords(symptomData);
+        setMarketPrices(marketPriceData);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard"))
       .finally(() => setIsLoading(false));
   }, [token]);
-
-  const chartData = useMemo(() => {
-    return (summary?.price_trend ?? []).map((point) => ({
-      label: `${point.commodity_name} ${point.recorded_date}`,
-      date: point.recorded_date,
-      commodity: point.commodity_name,
-      price: Number(point.price),
-    }));
-  }, [summary]);
 
   const plotMonitoring = useMemo(() => {
     return records.map((record) => {
@@ -86,29 +81,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Price trend</h2>
-              <p className="mt-1 text-sm text-slate-600">Trend harga berdasarkan rekod pasaran terkini.</p>
-            </div>
-            <StatusBadge label="Recharts" tone="info" />
-          </div>
-          <div className="h-72 w-full">
-            {chartData.length === 0 ? (
-              <p className="text-sm text-slate-600">No market price data yet.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 16, bottom: 10, left: 0 }}>
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} width={45} />
-                  <Tooltip formatter={(value, name, item) => [`RM ${value}`, item.payload.commodity]} />
-                  <Line type="monotone" dataKey="price" stroke="#3f6f2a" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
+        <CommodityPriceTrend prices={marketPrices} />
 
         <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-semibold">Crop status</h2>
