@@ -19,10 +19,16 @@ export type PriceSummary = {
 
 export type PriceLevel = "farm" | "wholesale" | "retail";
 
+export type CommodityPriceHistoryRow = {
+  date: string;
+  levels: Record<PriceLevel, PriceHighlight | null>;
+};
+
 export type CommodityPriceGroup = {
   commodityName: string;
   levels: Record<PriceLevel, PriceHighlight | null>;
   latestDate: string;
+  history: CommodityPriceHistoryRow[];
 };
 
 export function buildPriceSummary(records: MarketPrice[], limit = 6): PriceSummary {
@@ -58,9 +64,7 @@ export function buildCommodityPriceGroups(
   const historicalSeries = groupByPriceSeries(historyRecords);
   const seriesHighlights = Array.from(groupByPriceSeries(records).entries()).map(([key, currentRecords]) => {
     const current = currentRecords[0];
-    const previous = (historicalSeries.get(key) ?? []).find(
-      (record) => record.recorded_date < current.recorded_date,
-    ) ?? null;
+    const previous = findPreviousRecord(current, historicalSeries.get(key) ?? []);
     return createPriceHighlight(current, previous);
   });
   const commodities = new Map<string, CommodityPriceGroup>();
@@ -68,11 +72,12 @@ export function buildCommodityPriceGroups(
   seriesHighlights.forEach((highlight) => {
     if (!isPriceLevel(highlight.current.price_type)) return;
 
-    const key = highlight.current.commodity_name.trim().toLocaleLowerCase();
+    const key = normalizeCommodityName(highlight.current.commodity_name);
     const group = commodities.get(key) ?? {
       commodityName: highlight.current.commodity_name,
       levels: { farm: null, wholesale: null, retail: null },
       latestDate: highlight.current.recorded_date,
+      history: [],
     };
     const existingLevel = group.levels[highlight.current.price_type];
 
@@ -83,6 +88,10 @@ export function buildCommodityPriceGroups(
       group.latestDate = highlight.current.recorded_date;
     }
     commodities.set(key, group);
+  });
+
+  commodities.forEach((group) => {
+    group.history = buildCommodityHistory(group, historyRecords, historicalSeries);
   });
 
   return Array.from(commodities.values()).sort((left, right) =>
@@ -114,12 +123,41 @@ export function calculateLevelDifference(
   };
 }
 
+function buildCommodityHistory(
+  group: CommodityPriceGroup,
+  historyRecords: MarketPrice[],
+  historicalSeries: Map<string, MarketPrice[]>,
+): CommodityPriceHistoryRow[] {
+  const rows = new Map<string, CommodityPriceHistoryRow>();
+
+  historyRecords
+    .filter((record) =>
+      normalizeCommodityName(record.commodity_name) === normalizeCommodityName(group.commodityName)
+      && record.recorded_date < group.latestDate
+      && isPriceLevel(record.price_type),
+    )
+    .forEach((record) => {
+      if (!isPriceLevel(record.price_type)) return;
+
+      const row = rows.get(record.recorded_date) ?? {
+        date: record.recorded_date,
+        levels: { farm: null, wholesale: null, retail: null },
+      };
+      const existing = row.levels[record.price_type];
+      if (!existing || record.id > existing.current.id) {
+        const previous = findPreviousRecord(record, historicalSeries.get(priceSeriesKey(record)) ?? []);
+        row.levels[record.price_type] = createPriceHighlight(record, previous);
+      }
+      rows.set(record.recorded_date, row);
+    });
+
+  return Array.from(rows.values()).sort((left, right) => right.date.localeCompare(left.date));
+}
+
 function groupByPriceSeries(records: MarketPrice[]) {
   const grouped = new Map<string, MarketPrice[]>();
   records.forEach((record) => {
-    const key = [record.commodity_name, record.price_type, record.location]
-      .map((value) => value.trim().toLocaleLowerCase())
-      .join("|");
+    const key = priceSeriesKey(record);
     const group = grouped.get(key) ?? [];
     group.push(record);
     grouped.set(key, group);
@@ -128,10 +166,23 @@ function groupByPriceSeries(records: MarketPrice[]) {
   return grouped;
 }
 
+function priceSeriesKey(record: MarketPrice) {
+  return [record.commodity_name, record.price_type, record.location]
+    .map((value) => value.trim().toLocaleLowerCase())
+    .join("|");
+}
+
+function normalizeCommodityName(value: string) {
+  return value.trim().toLocaleLowerCase();
+}
+
+function findPreviousRecord(current: MarketPrice, records: MarketPrice[]) {
+  return records.find((record) => record.recorded_date < current.recorded_date) ?? null;
+}
+
 function toPriceHighlight(records: MarketPrice[]): PriceHighlight {
   const current = records[0];
-  const previous = records.find((record) => record.recorded_date < current.recorded_date) ?? null;
-  return createPriceHighlight(current, previous);
+  return createPriceHighlight(current, findPreviousRecord(current, records));
 }
 
 function createPriceHighlight(current: MarketPrice, previous: MarketPrice | null): PriceHighlight {

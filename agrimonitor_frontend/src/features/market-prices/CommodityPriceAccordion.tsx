@@ -67,6 +67,7 @@ export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onTo
               ))}
             </div>
             <PriceDifferences group={group} />
+            <PriceHistory history={group.history} />
           </div>
         </div>
       </div>
@@ -124,6 +125,59 @@ function PriceDifferences({ group }: { group: CommodityPriceGroup }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function PriceHistory({ history }: { history: CommodityPriceGroup["history"] }) {
+  return (
+    <section className="mt-4 border-t border-slate-200 pt-4">
+      <div>
+        <h4 className="font-semibold text-slate-950">Sejarah harga terdahulu</h4>
+        <p className="mt-1 text-xs text-slate-500">Rekod sebelum tarikh pantauan semasa.</p>
+      </div>
+
+      {history.length === 0 ? (
+        <p className="mt-3 text-sm text-slate-500">Belum ada sejarah harga.</p>
+      ) : (
+        <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
+          <table className="min-w-[640px] w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-field-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2 font-semibold">Tarikh</th>
+                <th className="px-3 py-2 text-right font-semibold">Ladang</th>
+                <th className="px-3 py-2 text-right font-semibold">Borong</th>
+                <th className="px-3 py-2 text-right font-semibold">Runcit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {history.map((row) => (
+                <tr className="hover:bg-field-50/60" key={row.date}>
+                  <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700">{formatMalayDate(row.date)}</td>
+                  <HistoryPriceCell highlight={row.levels.farm} />
+                  <HistoryPriceCell highlight={row.levels.wholesale} />
+                  <HistoryPriceCell highlight={row.levels.retail} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function HistoryPriceCell({ highlight }: { highlight: PriceHighlight | null }) {
+  if (!highlight) {
+    return <td className="px-3 py-2 text-right text-xs text-slate-400">Tiada data</td>;
+  }
+
+  return (
+    <td className="whitespace-nowrap px-3 py-2 text-right">
+      <p className="font-semibold text-slate-950">RM {formatMoney(highlight.current.price)}</p>
+      <p className={"text-xs " + trendTextClass(highlight.trend)}>
+        {highlight.changeAmount === null ? "Tiada perbandingan" : trendSymbol(highlight.trend) + " RM " + formatSigned(highlight.changeAmount, 2)}
+      </p>
+    </td>
   );
 }
 
