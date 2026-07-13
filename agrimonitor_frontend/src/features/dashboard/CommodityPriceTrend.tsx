@@ -73,20 +73,20 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         </label>
       </div>
 
-      <div className={`mt-3 grid gap-2 sm:grid-cols-2 ${selectedPriceType === "all" ? "lg:grid-cols-3" : ""}`}>
+      <div className={`mt-3 grid min-w-0 gap-2 sm:grid-cols-2 ${selectedPriceType === "all" ? "xl:grid-cols-3" : ""}`}>
         {visibleLines.map((line) => {
           const summary = summaries[line.key];
           const change = summary?.changePercent ?? 0;
           const changeTone = change > 0 ? "text-emerald-700" : change < 0 ? "text-red-700" : "text-slate-500";
           const arrow = change > 0 ? "↑" : change < 0 ? "↓" : "→";
           return (
-            <div className="flex min-h-20 flex-col justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2" key={line.key}>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+            <div className="flex min-h-20 min-w-0 flex-col justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2" key={line.key}>
+              <div className="flex min-w-0 items-center gap-2 text-sm text-slate-600">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color }} />
-                <span>{t(line.labelKey)} {t("marketPrice.date").toLowerCase() === "date" ? "latest" : "terkini"}</span>
+                <span className="min-w-0 truncate">{t(line.labelKey)} {t("marketPrice.date").toLowerCase() === "date" ? "latest" : "terkini"}</span>
               </div>
-              <p className="mt-1 whitespace-nowrap text-lg font-semibold text-slate-950">{summary ? formatPricePerKg(summary.price) : t("marketPrice.dataNotAvailable")}</p>
-              {summary && <p className={`mt-0.5 whitespace-nowrap text-xs font-medium ${changeTone}`}>{arrow} {formatPercent(Math.abs(change))}% {t("dashboard.periodChange").toLowerCase()}</p>}
+              <p className="mt-1 break-words text-lg font-semibold leading-tight text-slate-950">{summary ? formatPricePerKg(summary.price) : t("marketPrice.dataNotAvailable")}</p>
+              {summary && <p className={`mt-0.5 text-xs font-medium leading-tight ${changeTone}`} title={`${arrow} ${formatPercent(Math.abs(change))}% ${t("dashboard.periodChange").toLowerCase()}`}>{arrow} {formatPercent(Math.abs(change))}%</p>}
             </div>
           );
         })}
@@ -102,7 +102,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
           ))}
         </div>
         {chartSummary && (
-          <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid min-w-0 gap-2 text-xs text-slate-600 sm:grid-cols-2 xl:grid-cols-4">
             <MiniSummary label={t("dashboard.highestPrice")} value={formatCurrency(chartSummary.highest)} />
             <MiniSummary label={t("dashboard.lowestPrice")} value={formatCurrency(chartSummary.lowest)} />
             <MiniSummary label={t("dashboard.periodChange")} value={formatCurrency(chartSummary.change, { signed: true })} tone={chartSummary.change > 0 ? "success" : chartSummary.change < 0 ? "danger" : "default"} />
@@ -134,9 +134,9 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
 function MiniSummary({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "danger" }) {
   const toneClass = tone === "success" ? "text-emerald-700" : tone === "danger" ? "text-red-700" : "text-slate-950";
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-      <p className="text-[11px] text-slate-500">{label}</p>
-      <p className={`mt-0.5 whitespace-nowrap text-xs font-semibold leading-tight ${toneClass}`}>{value}</p>
+    <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+      <p className="text-[11px] leading-tight text-slate-500">{label}</p>
+      <p className={`mt-0.5 break-words text-xs font-semibold leading-tight ${toneClass}`}>{value}</p>
     </div>
   );
 }
@@ -210,3 +210,4 @@ function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
   const ticks = Array.from({ length: Math.round((upper - lower) / niceStep) + 1 }, (_, index) => Number((lower + index * niceStep).toFixed(2)));
   return { domain: [lower, upper] as [number, number], ticks };
 }
+
