@@ -17,18 +17,18 @@ type NavigationItem = { view: AppView; label: string; shortLabel: string; descri
 
 const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
-    label: "Overview",
-    items: [{ view: "dashboard", label: "Dashboard", shortLabel: "Home", description: "Summary, alerts, and price trend" }],
+    label: "Ringkasan",
+    items: [{ view: "dashboard", label: "Papan Pemuka", shortLabel: "Utama", description: "Ringkasan, amaran, dan trend harga" }],
   },
   {
-    label: "Farm",
-    items: [{ view: "monitoring", label: "Crop Monitoring", shortLabel: "Monitor", description: "Plots, activities, symptoms, and risk", badge: "Core" }],
+    label: "Ladang",
+    items: [{ view: "monitoring", label: "Pemantauan Tanaman", shortLabel: "Tanaman", description: "Plot, aktiviti, simptom, dan risiko", badge: "Utama" }],
   },
   {
-    label: "Business",
+    label: "Perniagaan",
     items: [
-      { view: "market", label: "Market Prices", shortLabel: "Market", description: "Commodity prices and CSV import" },
-      { view: "finance", label: "Finance", shortLabel: "Finance", description: "Costs, harvests, and profit/loss" },
+      { view: "market", label: "Harga Pasaran", shortLabel: "Harga", description: "Harga komoditi dan import CSV" },
+      { view: "finance", label: "Kewangan", shortLabel: "Kewangan", description: "Kos, hasil tuaian, dan untung/rugi" },
     ],
   },
 ];
@@ -72,7 +72,7 @@ function App() {
     setIsUserMenuOpen(false);
   }
 
-  if (isCheckingSession) return <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">Checking session...</main>;
+  if (isCheckingSession) return <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">Menyemak sesi...</main>;
 
   return (
     <ProtectedRoute user={user} fallback={<AuthPage onAuthenticated={handleAuthenticated} />}>
@@ -87,7 +87,7 @@ function App() {
               </div>
             </div>
 
-            <nav className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto" aria-label="Main navigation">
+            <nav className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto" aria-label="Navigasi utama">
               {navigationGroups.map((group) => (
                 <div key={group.label}>
                   <p className="px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
@@ -101,8 +101,8 @@ function App() {
             </nav>
 
             <div className="rounded-lg border border-field-100 bg-field-50 p-4 text-center">
-              <p className="text-sm font-bold text-slate-950">MVP Ready</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Monitor crops, prices, costs, and harvests from one workspace.</p>
+              <p className="text-sm font-bold text-slate-950">Sistem Sedia Digunakan</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">Pantau tanaman, harga, kos, dan hasil tuaian dalam satu ruang kerja.</p>
             </div>
           </aside>
 
@@ -133,9 +133,9 @@ function App() {
                     <div className="absolute right-0 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
                       <div className="border-b border-slate-100 pb-3">
                         <p className="text-sm font-semibold text-slate-950">{user?.name}</p>
-                        <div className="mt-2"><StatusBadge label={user?.role ?? "user"} tone={user?.role === "admin" ? "success" : "info"} /></div>
+                        <div className="mt-2"><StatusBadge label={user?.role === "admin" ? "Pentadbir" : "Pengguna"} tone={user?.role === "admin" ? "success" : "info"} /></div>
                       </div>
-                      <button className="mt-3 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={handleLogout}>Sign out</button>
+                      <button className="mt-3 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={handleLogout}>Log keluar</button>
                     </div>
                   )}
                 </div>
@@ -151,7 +151,7 @@ function App() {
           </section>
         </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label="Mobile navigation">
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label="Navigasi mudah alih">
           {navigationItems.map((item) => (
             <MobileNavButton key={item.view} item={item} active={view === item.view} onClick={() => handleNavigate(item.view)} />
           ))}

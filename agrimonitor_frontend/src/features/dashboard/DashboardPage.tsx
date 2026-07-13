@@ -16,15 +16,17 @@ type DashboardPageProps = {
 function statusLabel(status: string) {
   const labels: Record<string, string> = {
     healthy: "Sihat",
-    watch: "Perlu pantau",
+    watch: "Perlu Dipantau",
     risk: "Bermasalah",
     harvested: "Sudah dituai",
   };
   return labels[status] ?? status;
 }
 
-function statusTone(status: string): "success" | "warning" {
-  return status === "risk" || status === "watch" ? "warning" : "success";
+function statusTone(status: string): "success" | "warning" | "danger" {
+  if (status === "risk") return "danger";
+  if (status === "watch") return "warning";
+  return "success";
 }
 
 function severityLabel(severity: string) {
@@ -52,7 +54,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
         setSymptomRecords(symptomData);
         setMarketPrices(marketPriceData);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load dashboard"))
+      .catch((err) => setError(err instanceof Error ? err.message : "Papan pemuka tidak dapat dimuatkan"))
       .finally(() => setIsLoading(false));
   }, [token]);
 
@@ -67,17 +69,22 @@ export function DashboardPage({ token }: DashboardPageProps) {
   const healthyPlotCount = records.filter((record) => record.status === "healthy").length;
   const watchPlotCount = records.filter((record) => record.status === "watch").length;
   const riskPlotCount = records.filter((record) => record.status === "risk").length;
-  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading dashboard...</p>;
+  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Memuatkan papan pemuka...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
   if (!summary) return null;
+
+  const profitLossAmount = Number(summary.profit_loss) || 0;
+  const revenueAmount = Number(summary.total_revenue) || 0;
+  const profitMargin = revenueAmount > 0 ? (profitLossAmount / revenueAmount) * 100 : 0;
+  const latestRecordDate = getLatestRecordDate(records, symptomRecords, marketPrices);
 
   return (
     <div className="space-y-5">
       <section className="grid gap-3 md:grid-cols-4">
-        <SummaryCard label="Plots" value={summary.total_planting_records.toString()} />
-        <SummaryCard label="High Risk" value={summary.high_risk_alerts.toString()} tone="warning" />
-        <SummaryCard label="Latest Prices" value={summary.latest_market_prices.toString()} />
-        <SummaryCard label="Profit/Loss" value={formatMoney(summary.profit_loss)} tone={Number(summary.profit_loss) >= 0 ? "success" : "warning"} />
+        <SummaryCard label="Plot" value={summary.total_planting_records.toString()} />
+        <SummaryCard label="Risiko Tinggi" value={summary.high_risk_alerts.toString()} tone="warning" />
+        <SummaryCard label="Harga Terkini" value={summary.latest_market_prices.toString()} />
+        <SummaryCard label="Untung/Rugi" value={formatMoney(summary.profit_loss)} tone={Number(summary.profit_loss) >= 0 ? "success" : "warning"} />
       </section>
 
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
@@ -86,22 +93,24 @@ export function DashboardPage({ token }: DashboardPageProps) {
         <aside className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div>
             <h2 className="text-lg font-semibold">Status Tanaman</h2>
-            <p className="mt-1 text-sm text-slate-600">Ringkasan keadaan tanaman dan kewangan semasa.</p>
+            <p className="mt-1 text-sm text-slate-600">Ringkasan keadaan tanaman, kos dan hasil semasa.</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-1 xl:grid-cols-2">
             <StatusStat label="Jumlah tanaman" value={summary.total_planting_records.toString()} />
             <StatusStat label="Sihat" value={healthyPlotCount.toString()} tone="success" />
-            <StatusStat label="Perlu perhatian" value={watchPlotCount.toString()} tone={watchPlotCount > 0 ? "warning" : "default"} />
-            <StatusStat label="Berisiko" value={riskPlotCount.toString()} tone={riskPlotCount > 0 ? "danger" : "default"} />
+            <StatusStat label="Perlu Dipantau" value={watchPlotCount.toString()} tone={watchPlotCount > 0 ? "warning" : "default"} />
+            <StatusStat label="Bermasalah" value={riskPlotCount.toString()} tone={riskPlotCount > 0 ? "danger" : "default"} />
           </div>
           <div className="mt-3 divide-y divide-slate-100 border-t border-slate-100 text-sm">
             <FinanceStat label="Jumlah Kos" value={formatMoney(summary.total_cost)} />
             <FinanceStat label="Jumlah Hasil" value={formatMoney(summary.total_revenue)} />
             <FinanceStat
-              label={Number(summary.profit_loss) < 0 ? "Rugi" : "Untung"}
+              label="Untung / Rugi Bersih"
               value={formatMoney(summary.profit_loss)}
-              tone={Number(summary.profit_loss) < 0 ? "danger" : "success"}
+              tone={profitLossTone(profitLossAmount)}
             />
+            <FinanceStat label="Margin Keuntungan" value={`${profitMargin.toFixed(1)}%`} tone={profitMarginTone(profitMargin)} />
+            <FinanceStat label="Rekod Terakhir" value={latestRecordDate ? formatDisplayDate(latestRecordDate) : "Tiada rekod"} />
           </div>
         </aside>
       </section>
@@ -110,9 +119,9 @@ export function DashboardPage({ token }: DashboardPageProps) {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Pemantauan plot</h2>
-            <p className="mt-1 text-sm text-slate-600">Status plot ikut rekod tanaman: Sihat, Perlu pantau, atau Bermasalah.</p>
+            <p className="mt-1 text-sm text-slate-600">Status plot ikut rekod tanaman: Sihat, Perlu Dipantau, atau Bermasalah.</p>
           </div>
-          <div className="flex items-center gap-2"><StatusBadge label={`${healthyPlotCount} sihat`} tone="success" /><StatusBadge label={`${watchPlotCount} pantau`} tone={watchPlotCount > 0 || riskPlotCount > 0 ? "warning" : "info"} /></div>
+          <div className="flex items-center gap-2"><StatusBadge label={`${healthyPlotCount} sihat`} tone="success" /><StatusBadge label={`${watchPlotCount} perlu dipantau`} tone={watchPlotCount > 0 || riskPlotCount > 0 ? "warning" : "info"} /></div>
         </div>
         {plotMonitoring.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">Belum ada plot direkodkan.</p>
@@ -146,7 +155,7 @@ function SummaryCard({ label, value, tone = "info" }: { label: string; value: st
     <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-600">{label}</p>
-        <StatusBadge label={tone} tone={tone} />
+        <StatusBadge label={summaryToneLabel(tone)} tone={tone} />
       </div>
       <p className="mt-3 text-2xl font-bold text-slate-950">{value}</p>
     </article>
@@ -182,4 +191,33 @@ function formatMoney(value: string | number) {
   const amount = Number(value) || 0;
   const formatted = new Intl.NumberFormat("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
   return amount < 0 ? `-RM ${formatted}` : `RM ${formatted}`;
+}
+function profitLossTone(value: number): "default" | "success" | "danger" {
+  if (value > 0) return "success";
+  if (value < 0) return "danger";
+  return "default";
+}
+
+function profitMarginTone(value: number): "default" | "success" | "danger" {
+  if (value > 0) return "success";
+  if (value < 0) return "danger";
+  return "default";
+}
+
+function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[], prices: MarketPrice[]) {
+  const dates = [
+    ...records.map((record) => record.planting_date),
+    ...symptoms.map((symptom) => symptom.observed_at),
+    ...prices.map((price) => price.recorded_date),
+  ].filter(Boolean).sort();
+  return dates.length > 0 ? dates[dates.length - 1] : "";
+}
+
+function formatDisplayDate(dateValue: string) {
+  if (!dateValue) return "";
+  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateValue}T00:00:00`));
+}
+function summaryToneLabel(tone: "info" | "success" | "warning") {
+  const labels = { info: "Info", success: "Baik", warning: "Perhatian" };
+  return labels[tone];
 }

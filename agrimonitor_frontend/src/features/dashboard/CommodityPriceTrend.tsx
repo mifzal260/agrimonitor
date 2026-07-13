@@ -52,6 +52,10 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
     visibleLines.some((line) => row[line.key] !== null),
   );
   const summaries = useMemo(() => buildLatestSummaries(chartData), [chartData]);
+  const chartSummary = useMemo(
+    () => buildChartSummary(chartData, visibleLines.map((line) => line.key)),
+    [chartData, visibleLines],
+  );
   const yAxis = useMemo(
     () => buildYAxis(chartData, visibleLines.map((line) => line.key)),
     [chartData, visibleLines],
@@ -116,40 +120,50 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         })}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700" aria-label="Petunjuk jenis harga">
-        {visibleLines.map((line) => (
-          <div className="flex items-center gap-2" key={line.key}>
-            <span className="h-0.5 w-6" style={{ backgroundColor: line.color }} />
-            <span>{line.label}</span>
+      <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700" aria-label="Petunjuk jenis harga">
+          {visibleLines.map((line) => (
+            <div className="flex items-center gap-2" key={line.key}>
+              <span className="h-0.5 w-6" style={{ backgroundColor: line.color }} />
+              <span>{line.label}</span>
+            </div>
+          ))}
+        </div>
+        {chartSummary && (
+          <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
+            <MiniSummary label="Tertinggi" value={formatPrice(chartSummary.highest)} />
+            <MiniSummary label="Terendah" value={formatPrice(chartSummary.lowest)} />
+            <MiniSummary label="Perubahan" value={formatSignedMoney(chartSummary.change)} tone={chartSummary.change > 0 ? "success" : chartSummary.change < 0 ? "danger" : "default"} />
+            <MiniSummary label="Dikemas kini" value={formatShortDate(chartSummary.updatedAt)} />
           </div>
-        ))}
+        )}
       </div>
 
-      <div className="mt-1 h-[330px] min-w-0 w-full sm:h-[340px]">
+      <div className="mt-1 h-[285px] min-w-0 w-full sm:h-[295px]">
         {!selectedCommodity || !hasVisibleData ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
             Tiada rekod harga untuk komoditi ini.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 6, right: 6, bottom: 6, left: 8 }}>
+            <LineChart data={chartData} margin={{ top: 4, right: 6, bottom: 4, left: 14 }}>
               <XAxis
                 dataKey="date"
-                height={38}
+                height={34}
                 interval="preserveStartEnd"
                 minTickGap={56}
                 tick={{ fontSize: 11 }}
                 tickFormatter={formatShortDate}
-                label={{ value: "Tarikh", position: "insideBottom", offset: -2 }}
+                label={{ value: "Tarikh", position: "insideBottom", offset: -1 }}
               />
               <YAxis
                 domain={yAxis.domain}
                 ticks={yAxis.ticks}
                 tickFormatter={(value) => `RM ${formatAxisValue(Number(value))}`}
-                width={70}
+                width={78}
                 tick={{ fontSize: 11 }}
-                tickMargin={8}
-                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: -1 }}
+                tickMargin={10}
+                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: -8 }}
               />
               <Tooltip content={<PriceTooltip commodity={selectedCommodity} />} />
               {visibleLines.map((line) => (
@@ -173,6 +187,31 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
   );
 }
 
+function MiniSummary({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "danger" }) {
+  const toneClass = tone === "success" ? "text-emerald-700" : tone === "danger" ? "text-red-700" : "text-slate-950";
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+      <p className="text-[11px] text-slate-500">{label}</p>
+      <p className={`mt-0.5 whitespace-nowrap text-xs font-semibold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function formatSignedMoney(value: number) {
+  if (value === 0) return "RM 0.00";
+  const prefix = value < 0 ? "-" : "+";
+  return `${prefix}RM ${MONEY_FORMATTER.format(Math.abs(value))}`;
+}
+
+function buildChartSummary(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
+  const points = rows.flatMap((row) => keys.flatMap((key) => row[key] === null ? [] : [{ price: row[key] as number, date: row.date }]));
+  if (points.length === 0) return null;
+  const prices = points.map((point) => point.price);
+  const first = points[0].price;
+  const last = points[points.length - 1].price;
+  const updatedAt = points.reduce((latest, point) => point.date > latest ? point.date : latest, points[0].date);
+  return { highest: Math.max(...prices), lowest: Math.min(...prices), change: last - first, updatedAt };
+}
 function PriceTooltip({ active, payload, commodity }: { active?: boolean; payload?: TooltipEntry[]; commodity: string }) {
   if (!active || !payload?.length) return null;
   const date = payload[0].payload?.date ?? "";
