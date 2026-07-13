@@ -274,7 +274,7 @@ export function FinancePage({ token }: FinancePageProps) {
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
                       <span className="font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
-                      <button className="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100" type="button" onClick={() => setOpenHarvestMenuId(openHarvestMenuId === harvest.id ? null : harvest.id)} aria-label="Menu hasil tuaian">
+                      <button className="neo-icon-button px-2 py-1 text-slate-500" type="button" onClick={() => setOpenHarvestMenuId(openHarvestMenuId === harvest.id ? null : harvest.id)} aria-label="Menu hasil tuaian">
                         ...
                       </button>
                     </span>
@@ -336,6 +336,7 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: number) {
   return formatLocaleCurrency(value);
 }
+
 
 
 

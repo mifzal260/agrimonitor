@@ -42,5 +42,119 @@ body {
     -webkit-backdrop-filter: blur(14px);
     border-radius: 16px;
   }
+  .neo-tab {
+    border-radius: 14px;
+    border: 1px solid rgba(120, 166, 103, 0.26);
+    background: #f4faf1;
+    box-shadow: 7px 7px 16px rgba(31, 64, 45, 0.12), -7px -7px 16px rgba(255, 255, 255, 0.92);
+    color: #172033;
+  }
+
+  .neo-tab:hover:not(:disabled) {
+    border-color: rgba(63, 111, 42, 0.42);
+    background: #f8fcf5;
+    box-shadow: 5px 5px 13px rgba(31, 64, 45, 0.11), -5px -5px 13px rgba(255, 255, 255, 0.95);
+  }
+
+  .neo-tab:focus-visible {
+    outline: 2px solid rgba(63, 111, 42, 0.72);
+    outline-offset: 3px;
+  }
+
+  .neo-tab-active {
+    border-color: #3f6f2a;
+    background: #3f6f2a;
+    color: #ffffff;
+    box-shadow: inset 3px 3px 8px rgba(20, 51, 28, 0.24), inset -3px -3px 8px rgba(255, 255, 255, 0.16), 5px 5px 14px rgba(31, 64, 45, 0.13);
+  }
+
+  .neo-tab:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .neo-control {
+    border-radius: 12px;
+    border: 1px solid rgba(120, 166, 103, 0.24);
+    background: #f5faf2;
+    box-shadow: 5px 5px 12px rgba(31, 64, 45, 0.11), -5px -5px 12px rgba(255, 255, 255, 0.9);
+  }
+
+  .neo-control:hover:not(:disabled) {
+    border-color: rgba(63, 111, 42, 0.4);
+    background: #f9fcf7;
+  }
+
+  .neo-control:focus-visible,
+  .neo-button:focus-visible,
+  .neo-icon-button:focus-visible,
+  .neo-toggle-button:focus-visible {
+    outline: 2px solid rgba(63, 111, 42, 0.72);
+    outline-offset: 3px;
+  }
+
+  .neo-button {
+    border-radius: 12px;
+    border: 1px solid rgba(120, 166, 103, 0.28);
+    background: #f5faf2;
+    box-shadow: 5px 5px 12px rgba(31, 64, 45, 0.12), -5px -5px 12px rgba(255, 255, 255, 0.92);
+    color: #244019;
+  }
+
+  .neo-button:hover:not(:disabled) {
+    border-color: rgba(63, 111, 42, 0.45);
+    background: #ffffff;
+  }
+
+  .neo-button-primary {
+    border-color: #3f6f2a;
+    background: #3f6f2a;
+    color: #ffffff;
+    box-shadow: inset 2px 2px 6px rgba(20, 51, 28, 0.24), inset -2px -2px 6px rgba(255, 255, 255, 0.14), 5px 5px 12px rgba(31, 64, 45, 0.12);
+  }
+
+  .neo-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    box-shadow: none;
+  }
+
+  .neo-icon-button {
+    border-radius: 12px;
+    border: 1px solid rgba(120, 166, 103, 0.22);
+    background: #f5faf2;
+    box-shadow: 4px 4px 10px rgba(31, 64, 45, 0.1), -4px -4px 10px rgba(255, 255, 255, 0.9);
+  }
+
+  .neo-icon-button:hover:not(:disabled) {
+    color: #244019;
+    border-color: rgba(63, 111, 42, 0.38);
+    background: #ffffff;
+  }
+
+  .neo-toggle {
+    border-radius: 14px;
+    border: 1px solid rgba(120, 166, 103, 0.24);
+    background: #f5faf2;
+    box-shadow: inset 2px 2px 6px rgba(31, 64, 45, 0.08), inset -2px -2px 6px rgba(255, 255, 255, 0.9);
+  }
+
+  .neo-toggle-button {
+    border-radius: 10px;
+    color: #475569;
+  }
+
+  .neo-toggle-button-active {
+    border: 1px solid rgba(63, 111, 42, 0.55);
+    background: #3f6f2a;
+    color: #ffffff;
+    box-shadow: 3px 3px 8px rgba(31, 64, 45, 0.13), -3px -3px 8px rgba(255, 255, 255, 0.8);
+  }
+
+  .neo-stat-card {
+    border-radius: 12px;
+    border: 1px solid rgba(120, 166, 103, 0.24);
+    background: #f5faf2;
+    box-shadow: 5px 5px 12px rgba(31, 64, 45, 0.1), -5px -5px 12px rgba(255, 255, 255, 0.92);
+  }
 }
 

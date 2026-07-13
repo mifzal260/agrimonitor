@@ -134,7 +134,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
 function MiniSummary({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "danger" }) {
   const toneClass = tone === "success" ? "text-emerald-700" : tone === "danger" ? "text-red-700" : "text-slate-950";
   return (
-    <div className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
+    <div className="neo-stat-card min-w-0 px-2.5 py-1.5">
       <p className="text-[11px] leading-tight text-slate-500">{label}</p>
       <p className={`mt-0.5 break-words text-xs font-semibold leading-tight ${toneClass}`}>{value}</p>
     </div>
@@ -210,5 +210,6 @@ function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
   const ticks = Array.from({ length: Math.round((upper - lower) / niceStep) + 1 }, (_, index) => Number((lower + index * niceStep).toFixed(2)));
   return { domain: [lower, upper] as [number, number], ticks };
 }
+
 
 

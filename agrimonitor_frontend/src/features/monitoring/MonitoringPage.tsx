@@ -467,7 +467,7 @@ function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: P
                     <div className="min-w-0"><h3 className="truncate font-semibold">{record.field_name}</h3><p className="mt-2 text-sm text-slate-700">{record.crop.name}</p></div>
                     <div className="relative flex shrink-0 items-center gap-2">
                       <StatusBadge label={plantStatusLabel(record.status, t)} tone={plantStatusTone(record.status)} />
-                      <button className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" aria-label={t("cropMonitoring.openPlantingMenu")} onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
+                      <button className="neo-icon-button inline-flex h-8 w-8 items-center justify-center text-base font-bold leading-none text-slate-500" type="button" aria-label={t("cropMonitoring.openPlantingMenu")} onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
                       {openMenuId === record.id && (
                         <div className="absolute right-0 top-8 z-20 w-40 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
                           <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(record)}>{t("cropMonitoring.editRecord")}</button>
@@ -637,7 +637,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                           <p className="mt-1 whitespace-nowrap text-sm font-semibold text-slate-950">{t("cropMonitoring.total")}: {toCurrency(String(getActivityTotalCost(activity)))}</p>
                         </div>
                         <button
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                          className="neo-icon-button inline-flex h-8 w-8 items-center justify-center text-base font-bold leading-none text-slate-500"
                           type="button"
                           aria-label={t("cropMonitoring.openActivityMenu")}
                           onClick={() => setOpenMenuId(openMenuId === activity.id ? null : activity.id)}
@@ -743,9 +743,9 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                 <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
               ))}
             </select>
-            <div className="grid grid-cols-2 rounded-md border border-slate-200 p-1 text-xs font-semibold">
-              <button className={`rounded px-3 py-1.5 ${statusFilter === "active" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => { setStatusFilter("active"); setStatusMessage(""); }}>{t("cropMonitoring.active")}</button>
-              <button className={`rounded px-3 py-1.5 ${statusFilter === "resolved" ? "bg-field-700 text-white" : "text-slate-600"}`} type="button" onClick={() => { setStatusFilter("resolved"); setStatusMessage(""); }}>{t("cropMonitoring.resolved")}</button>
+            <div className="neo-toggle grid grid-cols-2 p-1 text-xs font-semibold">
+              <button className={`neo-toggle-button px-3 py-1.5 ${statusFilter === "active" ? "neo-toggle-button-active" : ""}`} type="button" onClick={() => { setStatusFilter("active"); setStatusMessage(""); }}>{t("cropMonitoring.active")}</button>
+              <button className={`neo-toggle-button px-3 py-1.5 ${statusFilter === "resolved" ? "neo-toggle-button-active" : ""}`} type="button" onClick={() => { setStatusFilter("resolved"); setStatusMessage(""); }}>{t("cropMonitoring.resolved")}</button>
             </div>
           </div>
 
@@ -793,7 +793,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                       </div>
                       <div className="relative flex shrink-0 items-center gap-2">
                         <StatusBadge label={severityLabel(record.severity, t)} tone={severityTone(record.severity)} />
-                        <button className="inline-flex h-7 w-7 items-center justify-center rounded-md text-base font-bold leading-none text-slate-500 hover:bg-slate-100 hover:text-slate-900" type="button" aria-label={t("cropMonitoring.openSymptomMenu")} onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
+                        <button className="neo-icon-button inline-flex h-8 w-8 items-center justify-center text-base font-bold leading-none text-slate-500" type="button" aria-label={t("cropMonitoring.openSymptomMenu")} onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
                         {openMenuId === record.id && (
                           <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
                             {record.status !== "resolved" && <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onResolve(record.id); setStatusMessage(t("notifications.symptomResolved")); } catch { /* error banner is handled by parent */ } }}>{t("cropMonitoring.markResolved")}</button>}
@@ -813,6 +813,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
+
 
 
 

@@ -149,7 +149,7 @@ function SummaryCard({ label, value, tone = "info", toneLabel }: { label: string
 function StatusStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "danger" }) {
   const toneClass = { default: "text-slate-950", success: "text-emerald-700", warning: "text-amber-700", danger: "text-red-700" }[tone];
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+    <div className="neo-stat-card px-3 py-2">
       <p className="text-xs text-slate-600">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${toneClass}`}>{value}</p>
     </div>
@@ -192,5 +192,6 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
 function parseDateValue(dateValue: string) {
   return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
 }
+
 
 

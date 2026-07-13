@@ -136,7 +136,8 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       <DailyPriceSummary summary={priceSummary} onViewAll={() => document.getElementById("senarai-harga-pasaran")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">          <PriceTypeButton label={t("common.all")} description={t("marketPrice.allPriceTypes")} value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+        <div className="grid gap-3 md:grid-cols-4">
+          <PriceTypeButton label={t("common.all")} description={t("marketPrice.allPriceTypes")} value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label={t("marketPrice.farm")} description={t("marketPrice.farmDescription")} value="farm" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label={t("marketPrice.wholesale")} description={t("marketPrice.wholesaleDescription")} value="wholesale" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
           <PriceTypeButton label={t("marketPrice.retail")} description={t("marketPrice.retailDescription")} value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
@@ -161,8 +162,8 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
             </select>
           </label>
           <div className="flex items-end gap-2">
-            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 md:min-w-28" type="submit" disabled={isFiltering}>{isFiltering ? t("common.loading") : t("common.filter")}</button>
-            <button className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>{t("common.reset")}</button>
+            <button className="neo-button neo-button-primary min-h-10 flex-1 px-4 py-2 text-sm font-semibold disabled:opacity-60 md:min-w-28" type="submit" disabled={isFiltering}>{isFiltering ? t("common.loading") : t("common.filter")}</button>
+            <button className="neo-button min-h-10 px-3 py-2 text-sm font-semibold disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>{t("common.reset")}</button>
           </div>
         </div>
       </form>
@@ -196,7 +197,12 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
 function PriceTypeButton({ label, description, value, currentValue, onSelect }: { label: string; description: string; value: string; currentValue: string; onSelect: (value: string) => void }) {
   const isActive = currentValue === value;
   return (
-    <button className={`rounded-lg border p-4 text-left transition ${isActive ? "border-field-700 bg-field-700 text-white shadow-sm" : "border-field-100 bg-field-50 text-slate-900 hover:border-field-300"}`} type="button" onClick={() => onSelect(value)}>
+    <button
+      className={`neo-tab p-4 text-left transition ${isActive ? "neo-tab-active" : ""}`}
+      type="button"
+      onClick={() => onSelect(value)}
+      aria-pressed={isActive}
+    >
       <span className="block text-base font-semibold">{label}</span>
       <span className={`mt-1 block text-sm ${isActive ? "text-field-50" : "text-slate-600"}`}>{description}</span>
     </button>
@@ -241,4 +247,5 @@ function formatDisplayDate(dateValue: string) {
   const [year, month, day] = dateValue.split("-");
   return `${day}/${month}/${year}`;
 }
+
 

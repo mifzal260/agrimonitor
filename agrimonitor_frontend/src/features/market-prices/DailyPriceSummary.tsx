@@ -16,7 +16,7 @@ export function DailyPriceSummary({ summary, onViewAll }: { summary: PriceSummar
             {summary.updatedCommodityCount} {t("marketPrice.updatedCommodities")}{summary.latestDate ? " · " + formatDateLong(summary.latestDate) : ""}
           </p>
         </div>
-        <button className="rounded-md border border-field-700 px-3 py-2 text-sm font-semibold text-field-700 hover:bg-field-50 focus:outline-none focus:ring-2 focus:ring-field-700 focus:ring-offset-2" type="button" onClick={onViewAll}>
+        <button className="neo-button px-3 py-2 text-sm font-semibold focus:outline-none" type="button" onClick={onViewAll}>
           {t("marketPrice.viewAllPrices")}
         </button>
       </div>
@@ -24,5 +24,6 @@ export function DailyPriceSummary({ summary, onViewAll }: { summary: PriceSummar
     </section>
   );
 }
+
 
 
