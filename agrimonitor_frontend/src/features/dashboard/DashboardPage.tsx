@@ -84,7 +84,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
         <CommodityPriceTrend prices={marketPrices} />
 
         <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Crop status</h2>
+          <h2 className="text-lg font-semibold">Status Tanaman</h2>
           <div className="mt-4 space-y-3">
             {summary.crop_status.length === 0 ? <p className="text-sm text-slate-600">No planting records yet.</p> : summary.crop_status.map((item) => (
               <div key={item.status} className="flex items-center justify-between gap-3 text-sm">
@@ -94,8 +94,8 @@ export function DashboardPage({ token }: DashboardPageProps) {
             ))}
           </div>
           <div className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-700">
-            <p>Total cost: RM {summary.total_cost}</p>
-            <p>Total revenue: RM {summary.total_revenue}</p>
+            <p>Jumlah Kos: RM {summary.total_cost}</p>
+            <p>Jumlah Hasil: RM {summary.total_revenue}</p>
           </div>
         </div>
       </section>

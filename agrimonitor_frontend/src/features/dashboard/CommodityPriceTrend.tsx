@@ -10,8 +10,10 @@ import {
 } from "./commodityPriceChartUtils";
 
 type PriceTypeFilter = "all" | "farm" | "wholesale" | "retail";
+type PriceKey = Exclude<PriceTypeFilter, "all">;
 
 type TooltipEntry = {
+  color?: string;
   dataKey?: string | number;
   value?: number;
   payload?: CommodityPriceChartRow;
@@ -43,6 +45,11 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
     : PRICE_LINES.filter((line) => line.key === selectedPriceType);
   const hasVisibleData = chartData.some((row) =>
     visibleLines.some((line) => row[line.key] !== null),
+  );
+  const summaries = useMemo(() => buildLatestSummaries(chartData), [chartData]);
+  const yAxis = useMemo(
+    () => buildYAxis(chartData, visibleLines.map((line) => line.key)),
+    [chartData, visibleLines],
   );
 
   return (
@@ -79,36 +86,76 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         </label>
       </div>
 
-      <div className="mt-4 h-80 w-full">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {PRICE_LINES.map((line) => {
+          const summary = summaries[line.key];
+          const isUp = (summary?.changePercent ?? 0) > 0;
+          const isDown = (summary?.changePercent ?? 0) < 0;
+
+          return (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={line.key}>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: line.color }} />
+                <span>{line.label} terkini</span>
+              </div>
+              <p className="mt-2 text-xl font-semibold text-slate-950">
+                {summary ? `RM${summary.price.toFixed(2)}/kg` : "Data belum tersedia"}
+              </p>
+              {summary && (
+                <p className={`mt-1 text-sm font-medium ${isUp ? "text-emerald-700" : isDown ? "text-amber-700" : "text-slate-500"}`}>
+                  {isUp ? "↑" : isDown ? "↓" : "→"} {Math.abs(summary.changePercent).toFixed(1)}% daripada rekod sebelumnya
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700" aria-label="Petunjuk jenis harga">
+        {PRICE_LINES.map((line) => (
+          <div className="flex items-center gap-2" key={line.key}>
+            <span className="h-0.5 w-6" style={{ backgroundColor: line.color }} />
+            <span>{line.label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-2 h-[380px] w-full">
         {!selectedCommodity || !hasVisibleData ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
             Tiada rekod harga untuk komoditi ini.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 10, right: 16, bottom: 24, left: 18 }}>
+            <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 12, left: 4 }}>
               <XAxis
                 dataKey="date"
-                height={50}
+                height={42}
+                interval="preserveStartEnd"
+                minTickGap={48}
                 tick={{ fontSize: 11 }}
                 tickFormatter={formatShortDate}
-                label={{ value: "Tarikh", position: "insideBottom", offset: -8 }}
+                label={{ value: "Tarikh", position: "insideBottom", offset: -4 }}
               />
               <YAxis
-                width={64}
+                domain={yAxis.domain}
+                ticks={yAxis.ticks}
+                tickFormatter={(value) => `RM${value}`}
+                width={54}
                 tick={{ fontSize: 11 }}
-                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: 4 }}
+                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: 10 }}
               />
               <Tooltip content={<PriceTooltip commodity={selectedCommodity} />} />
               {visibleLines.map((line) => (
                 <Line
                   connectNulls={false}
                   dataKey={line.key}
-                  dot={{ r: 3 }}
+                  dot={false}
+                  activeDot={{ r: 5, strokeWidth: 2, fill: "#ffffff" }}
                   key={line.key}
                   name={line.label}
                   stroke={line.color}
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   type="monotone"
                 />
               ))}
@@ -125,15 +172,18 @@ function PriceTooltip({ active, payload, commodity }: { active?: boolean; payloa
   const date = payload[0].payload?.date ?? "";
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg">
-      <p className="font-semibold text-slate-950">{commodity}</p>
+    <div className="min-w-48 rounded-md border border-slate-200 bg-white p-4 text-xs shadow-lg">
+      <p className="text-sm font-semibold text-slate-950">{commodity}</p>
       <p className="mt-1 text-slate-600">{formatDisplayDate(date)}</p>
-      <div className="mt-2 space-y-1">
+      <div className="mt-3 space-y-2">
         {payload.map((entry) => (
-          <p className="text-slate-700" key={String(entry.dataKey)}>
-            <span className="font-medium">{priceTypeLabel(String(entry.dataKey))}:</span>{" "}
-            RM {Number(entry.value ?? 0).toFixed(2)}/kg
-          </p>
+          <div className="flex items-center justify-between gap-5 text-slate-700" key={String(entry.dataKey)}>
+            <span className="flex items-center gap-2 font-medium">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+              {priceTypeLabel(String(entry.dataKey))}
+            </span>
+            <span>RM {Number(entry.value ?? 0).toFixed(2)}/kg</span>
+          </div>
         ))}
       </div>
     </div>
@@ -145,11 +195,42 @@ function priceTypeLabel(priceType: string) {
 }
 
 function formatShortDate(dateValue: string) {
-  const [year, month, day] = dateValue.split("-");
-  return `${day}/${month}/${year.slice(2)}`;
+  const [, month, day] = dateValue.split("-");
+  const months = ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ogo", "Sep", "Okt", "Nov", "Dis"];
+  return `${Number(day)} ${months[Number(month) - 1]}`;
 }
 
 function formatDisplayDate(dateValue: string) {
   if (!dateValue) return "";
-  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateValue}T00:00:00`));
+  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${dateValue}T00:00:00`));
+}
+
+function buildLatestSummaries(rows: CommodityPriceChartRow[]) {
+  return Object.fromEntries(PRICE_LINES.map((line) => {
+    const values = rows.flatMap((row) => row[line.key] === null ? [] : [row[line.key] as number]);
+    if (values.length === 0) return [line.key, null];
+    const price = values[values.length - 1];
+    const previous = values.length > 1 ? values[values.length - 2] : undefined;
+    const changePercent = previous && previous !== 0 ? ((price - previous) / previous) * 100 : 0;
+    return [line.key, { price, changePercent }];
+  })) as Record<PriceKey, { price: number; changePercent: number } | null>;
+}
+
+function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
+  const values = rows.flatMap((row) => keys.flatMap((key) => row[key] === null ? [] : [row[key] as number]));
+  if (values.length === 0) return { domain: [0, 10] as [number, number], ticks: [0, 2, 4, 6, 8, 10] };
+
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const spread = Math.max(maximum - minimum, Math.max(maximum * 0.1, 1));
+  const rawStep = spread / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const niceStep = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  const lower = Math.floor((minimum - spread * 0.12) / niceStep) * niceStep;
+  const upper = Math.ceil((maximum + spread * 0.12) / niceStep) * niceStep;
+  const ticks = Array.from({ length: Math.round((upper - lower) / niceStep) + 1 }, (_, index) =>
+    Number((lower + index * niceStep).toFixed(2)),
+  );
+  return { domain: [lower, upper] as [number, number], ticks };
 }
