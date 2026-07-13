@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { getDashboardSummary } from "../../api/dashboard";
 import { listMarketPrices } from "../../api/marketPrices";
@@ -7,21 +8,12 @@ import { StatusBadge } from "../../components/StatusBadge";
 import type { DashboardSummary } from "../../types/dashboard";
 import type { MarketPrice } from "../../types/marketPrice";
 import type { PlantingRecord, SymptomRecord } from "../../types/monitoring";
+import { formatCurrency, formatDateLong, formatPercent } from "../../utils/localeFormat";
 import { CommodityPriceTrend } from "./CommodityPriceTrend";
 
 type DashboardPageProps = {
   token: string;
 };
-
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    healthy: "Sihat",
-    watch: "Perlu Dipantau",
-    risk: "Bermasalah",
-    harvested: "Sudah dituai",
-  };
-  return labels[status] ?? status;
-}
 
 function statusTone(status: string): "success" | "warning" | "danger" {
   if (status === "risk") return "danger";
@@ -29,16 +21,8 @@ function statusTone(status: string): "success" | "warning" | "danger" {
   return "success";
 }
 
-function severityLabel(severity: string) {
-  const labels: Record<string, string> = {
-    low: "Rendah",
-    medium: "Sederhana",
-    high: "Tinggi",
-  };
-  return labels[severity] ?? severity;
-}
-
 export function DashboardPage({ token }: DashboardPageProps) {
+  const { t } = useTranslation();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [records, setRecords] = useState<PlantingRecord[]>([]);
   const [symptomRecords, setSymptomRecords] = useState<SymptomRecord[]>([]);
@@ -54,9 +38,9 @@ export function DashboardPage({ token }: DashboardPageProps) {
         setSymptomRecords(symptomData);
         setMarketPrices(marketPriceData);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Papan pemuka tidak dapat dimuatkan"))
+      .catch((err) => setError(err instanceof Error ? err.message : t("notifications.saveFailed")))
       .finally(() => setIsLoading(false));
-  }, [token]);
+  }, [token, t]);
 
   const plotMonitoring = useMemo(() => {
     return records.map((record) => {
@@ -69,7 +53,8 @@ export function DashboardPage({ token }: DashboardPageProps) {
   const healthyPlotCount = records.filter((record) => record.status === "healthy").length;
   const watchPlotCount = records.filter((record) => record.status === "watch").length;
   const riskPlotCount = records.filter((record) => record.status === "risk").length;
-  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Memuatkan papan pemuka...</p>;
+
+  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">{t("common.loading")}...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
   if (!summary) return null;
 
@@ -81,10 +66,10 @@ export function DashboardPage({ token }: DashboardPageProps) {
   return (
     <div className="space-y-5">
       <section className="grid gap-3 md:grid-cols-4">
-        <SummaryCard label="Plot" value={summary.total_planting_records.toString()} />
-        <SummaryCard label="Risiko Tinggi" value={summary.high_risk_alerts.toString()} tone="warning" />
-        <SummaryCard label="Harga Terkini" value={summary.latest_market_prices.toString()} />
-        <SummaryCard label="Untung/Rugi" value={formatMoney(summary.profit_loss)} tone={Number(summary.profit_loss) >= 0 ? "success" : "warning"} />
+        <SummaryCard label={t("dashboard.plots")} value={summary.total_planting_records.toString()} toneLabel={t("common.info")} />
+        <SummaryCard label={t("dashboard.highRisk")} value={summary.high_risk_alerts.toString()} tone="warning" toneLabel={t("common.attention")} />
+        <SummaryCard label={t("dashboard.latestPrices")} value={summary.latest_market_prices.toString()} toneLabel={t("common.info")} />
+        <SummaryCard label={t("dashboard.profitLoss")} value={formatCurrency(summary.profit_loss)} tone={profitLossAmount >= 0 ? "success" : "warning"} toneLabel={profitLossAmount >= 0 ? t("common.good") : t("common.attention")} />
       </section>
 
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
@@ -92,25 +77,21 @@ export function DashboardPage({ token }: DashboardPageProps) {
 
         <aside className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div>
-            <h2 className="text-lg font-semibold">Status Tanaman</h2>
-            <p className="mt-1 text-sm text-slate-600">Ringkasan keadaan tanaman, kos dan hasil semasa.</p>
+            <h2 className="text-lg font-semibold">{t("dashboard.cropStatus")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("dashboard.cropStatusDescription")}</p>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-1 xl:grid-cols-2">
-            <StatusStat label="Jumlah tanaman" value={summary.total_planting_records.toString()} />
-            <StatusStat label="Sihat" value={healthyPlotCount.toString()} tone="success" />
-            <StatusStat label="Perlu Dipantau" value={watchPlotCount.toString()} tone={watchPlotCount > 0 ? "warning" : "default"} />
-            <StatusStat label="Bermasalah" value={riskPlotCount.toString()} tone={riskPlotCount > 0 ? "danger" : "default"} />
+            <StatusStat label={t("dashboard.totalPlants")} value={summary.total_planting_records.toString()} />
+            <StatusStat label={t("dashboard.healthy")} value={healthyPlotCount.toString()} tone="success" />
+            <StatusStat label={t("dashboard.needsAttention")} value={watchPlotCount.toString()} tone={watchPlotCount > 0 ? "warning" : "default"} />
+            <StatusStat label={t("dashboard.problematic")} value={riskPlotCount.toString()} tone={riskPlotCount > 0 ? "danger" : "default"} />
           </div>
           <div className="mt-3 divide-y divide-slate-100 border-t border-slate-100 text-sm">
-            <FinanceStat label="Jumlah Kos" value={formatMoney(summary.total_cost)} />
-            <FinanceStat label="Jumlah Hasil" value={formatMoney(summary.total_revenue)} />
-            <FinanceStat
-              label="Untung / Rugi Bersih"
-              value={formatMoney(summary.profit_loss)}
-              tone={profitLossTone(profitLossAmount)}
-            />
-            <FinanceStat label="Margin Keuntungan" value={`${profitMargin.toFixed(1)}%`} tone={profitMarginTone(profitMargin)} />
-            <FinanceStat label="Rekod Terakhir" value={latestRecordDate ? formatDisplayDate(latestRecordDate) : "Tiada rekod"} />
+            <FinanceStat label={t("dashboard.totalCost")} value={formatCurrency(summary.total_cost)} />
+            <FinanceStat label={t("dashboard.totalRevenue")} value={formatCurrency(summary.total_revenue)} />
+            <FinanceStat label={t("dashboard.netProfitLoss")} value={formatCurrency(summary.profit_loss)} tone={profitLossTone(profitLossAmount)} />
+            <FinanceStat label={t("dashboard.profitMargin")} value={`${formatPercent(profitMargin)}%`} tone={profitMarginTone(profitMargin)} />
+            <FinanceStat label={t("dashboard.latestRecord")} value={latestRecordDate ? formatDateLong(latestRecordDate) : t("emptyState.noLatestRecord")} />
           </div>
         </aside>
       </section>
@@ -118,13 +99,16 @@ export function DashboardPage({ token }: DashboardPageProps) {
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">Pemantauan plot</h2>
-            <p className="mt-1 text-sm text-slate-600">Status plot ikut rekod tanaman: Sihat, Perlu Dipantau, atau Bermasalah.</p>
+            <h2 className="text-lg font-semibold">{t("dashboard.plotMonitoring")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("dashboard.plotMonitoringDescription")}</p>
           </div>
-          <div className="flex items-center gap-2"><StatusBadge label={`${healthyPlotCount} sihat`} tone="success" /><StatusBadge label={`${watchPlotCount} perlu dipantau`} tone={watchPlotCount > 0 || riskPlotCount > 0 ? "warning" : "info"} /></div>
+          <div className="flex items-center gap-2">
+            <StatusBadge label={`${healthyPlotCount} ${t("dashboard.healthy").toLowerCase()}`} tone="success" />
+            <StatusBadge label={`${watchPlotCount} ${t("dashboard.needsAttention").toLowerCase()}`} tone={watchPlotCount > 0 || riskPlotCount > 0 ? "warning" : "info"} />
+          </div>
         </div>
         {plotMonitoring.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Belum ada plot direkodkan.</p>
+          <p className="mt-3 text-sm text-slate-600">{t("emptyState.noPlantingRecords")}</p>
         ) : (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {plotMonitoring.map(({ record, activeSymptoms, latestActiveSymptom }) => (
@@ -133,13 +117,13 @@ export function DashboardPage({ token }: DashboardPageProps) {
                   <div>
                     <p className="font-semibold text-slate-950">{record.field_name} - {record.crop.name}</p>
                     {latestActiveSymptom ? (
-                      <p className="mt-1 text-slate-700">{latestActiveSymptom.symptom.name} <span className="text-xs text-slate-500">({severityLabel(latestActiveSymptom.severity)})</span></p>
+                      <p className="mt-1 text-slate-700">{latestActiveSymptom.symptom.name} <span className="text-xs text-slate-500">({t(`status.${latestActiveSymptom.severity}`, { defaultValue: latestActiveSymptom.severity })})</span></p>
                     ) : (
-                      <p className="mt-1 text-slate-700">Tiada simptom aktif</p>
+                      <p className="mt-1 text-slate-700">{t("dashboard.noActiveSymptoms")}</p>
                     )}
-                    <p className="mt-1 text-xs text-slate-500">{activeSymptoms.length} simptom aktif</p>
+                    <p className="mt-1 text-xs text-slate-500">{activeSymptoms.length} {t("dashboard.activeSymptoms")}</p>
                   </div>
-                  <StatusBadge label={statusLabel(record.status)} tone={statusTone(record.status)} />
+                  <StatusBadge label={t(`status.${record.status}`, { defaultValue: record.status })} tone={statusTone(record.status)} />
                 </div>
               </article>
             ))}
@@ -150,25 +134,20 @@ export function DashboardPage({ token }: DashboardPageProps) {
   );
 }
 
-function SummaryCard({ label, value, tone = "info" }: { label: string; value: string; tone?: "info" | "success" | "warning" }) {
+function SummaryCard({ label, value, tone = "info", toneLabel }: { label: string; value: string; tone?: "info" | "success" | "warning"; toneLabel: string }) {
   return (
     <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-600">{label}</p>
-        <StatusBadge label={summaryToneLabel(tone)} tone={tone} />
+        <StatusBadge label={toneLabel} tone={tone} />
       </div>
       <p className="mt-3 text-2xl font-bold text-slate-950">{value}</p>
     </article>
   );
 }
-function StatusStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "danger" }) {
-  const toneClass = {
-    default: "text-slate-950",
-    success: "text-emerald-700",
-    warning: "text-amber-700",
-    danger: "text-red-700",
-  }[tone];
 
+function StatusStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "danger" }) {
+  const toneClass = { default: "text-slate-950", success: "text-emerald-700", warning: "text-amber-700", danger: "text-red-700" }[tone];
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
       <p className="text-xs text-slate-600">{label}</p>
@@ -187,11 +166,6 @@ function FinanceStat({ label, value, tone = "default" }: { label: string; value:
   );
 }
 
-function formatMoney(value: string | number) {
-  const amount = Number(value) || 0;
-  const formatted = new Intl.NumberFormat("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
-  return amount < 0 ? `-RM ${formatted}` : `RM ${formatted}`;
-}
 function profitLossTone(value: number): "default" | "success" | "danger" {
   if (value > 0) return "success";
   if (value < 0) return "danger";
@@ -215,18 +189,6 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
   return dates.length > 0 ? dates[dates.length - 1] : "";
 }
 
-function formatDisplayDate(dateValue: string) {
-  if (!dateValue) return "";
-  const date = parseDateValue(dateValue);
-  if (Number.isNaN(date.getTime())) return "Tiada rekod";
-  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(date);
-}
-
 function parseDateValue(dateValue: string) {
   return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
-}
-
-function summaryToneLabel(tone: "info" | "success" | "warning") {
-  const labels = { info: "Info", success: "Baik", warning: "Perhatian" };
-  return labels[tone];
 }

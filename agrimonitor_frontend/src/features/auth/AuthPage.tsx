@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { login, register } from "../../api/auth";
 import type { AuthResponse } from "../../types/auth";
@@ -10,6 +11,7 @@ type AuthPageProps = {
 };
 
 export function AuthPage({ onAuthenticated }: AuthPageProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<AuthView>("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -29,7 +31,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
           : await login({ email, password });
       onAuthenticated(response);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed");
+      setError(err instanceof Error ? err.message : t("auth.authenticationFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -38,16 +40,14 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
   return (
     <main className="min-h-screen bg-field-50 px-5 py-8 text-slate-950">
       <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <p className="text-sm font-semibold uppercase text-field-700">AgriMonitor</p>
-        <h1 className="mt-2 text-3xl font-bold">{view === "login" ? "Login" : "Register"}</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-700">
-          Access your farm monitoring workspace. The first registered account becomes the system administrator.
-        </p>
+        <p className="text-sm font-semibold uppercase text-field-700">{t("common.appName")}</p>
+        <h1 className="mt-2 text-3xl font-bold">{view === "login" ? t("auth.login") : t("auth.register")}</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-700">{t("auth.intro")}</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg border border-field-100 bg-white p-5 shadow-sm">
           {view === "register" && (
             <label className="block text-sm font-medium text-slate-800">
-              Name
+              {t("auth.name")}
               <input
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-field-700"
                 value={name}
@@ -59,7 +59,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
           )}
 
           <label className="block text-sm font-medium text-slate-800">
-            Email
+            {t("auth.email")}
             <input
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-field-700"
               type="email"
@@ -70,7 +70,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
           </label>
 
           <label className="block text-sm font-medium text-slate-800">
-            Password
+            {t("auth.password")}
             <input
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-field-700"
               type="password"
@@ -88,7 +88,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             type="submit"
             disabled={isLoading}
           >
-            {isLoading ? "Please wait..." : view === "login" ? "Login" : "Create account"}
+            {isLoading ? t("common.pleaseWait") : view === "login" ? t("auth.login") : t("auth.createAccount")}
           </button>
         </form>
 
@@ -100,7 +100,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             setError("");
           }}
         >
-          {view === "login" ? "Need an account? Register" : "Already registered? Login"}
+          {view === "login" ? t("auth.needAccount") : t("auth.alreadyRegistered")}
         </button>
       </section>
     </main>

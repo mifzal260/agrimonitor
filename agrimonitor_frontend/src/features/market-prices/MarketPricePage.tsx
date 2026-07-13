@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { createMarketPrice, importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
 import type { User } from "../../types/auth";
@@ -15,6 +16,7 @@ type MarketPricePageProps = {
 const emptyFilters = { commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" };
 
 export function MarketPricePage({ token, user }: MarketPricePageProps) {
+  const { t } = useTranslation();
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [allPrices, setAllPrices] = useState<MarketPrice[]>([]);
   const [filters, setFilters] = useState(emptyFilters);
@@ -43,7 +45,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       setPrices(priceData);
       setAllPrices(priceData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load market prices");
+      setError(err instanceof Error ? err.message : t("emptyState.noMarketPrices"));
     } finally {
       setIsLoading(false);
     }
@@ -60,9 +62,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       const priceData = await listMarketPrices(token, { ...filters, price_type: "" });
       setPrices(priceData);
       setAppliedPriceType(filters.price_type);
-      setMessage(priceData.length === 0 ? "Tiada harga pasaran dijumpai untuk filter ini." : `${priceData.length} rekod harga pasaran dijumpai.`);
+      setMessage(priceData.length === 0 ? t("emptyState.noMarketPrices") : `${priceData.length} ${t("marketPrice.marketPriceRecords").toLowerCase()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Filter harga pasaran gagal.");
+      setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
     } finally {
       setIsFiltering(false);
     }
@@ -79,7 +81,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       setPrices(priceData);
       setAllPrices(priceData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal reset filter harga pasaran.");
+      setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
     } finally {
       setIsFiltering(false);
     }
@@ -95,9 +97,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setAllPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
       setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
-      setMessage("Harga pasaran berjaya disimpan dan sudah muncul dalam senarai.");
+      setMessage(t("notifications.marketPriceSaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Harga pasaran gagal disimpan.");
+      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
     } finally {
       setIsSavingPrice(false);
     }
@@ -106,7 +108,7 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   async function submitCsv(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!csvFile) {
-      setError("Pilih fail CSV dahulu.");
+      setError(t("validation.selectCsvFile"));
       return;
     }
     setMessage("");
@@ -115,16 +117,16 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     try {
       const result = await importMarketPricesCsv(token, csvFile);
       setCsvFile(null);
-      setMessage(`CSV berjaya diimport: ${result.imported} baris, ${result.skipped} dilangkau.`);
+      setMessage(t("notifications.csvImported", { imported: result.imported, skipped: result.skipped }));
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "CSV gagal diimport.");
+      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
     } finally {
       setIsImportingCsv(false);
     }
   }
 
-  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading market prices...</p>;
+  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">{t("common.loading")}...</p>;
 
   return (
     <div className="space-y-5">
@@ -134,33 +136,33 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       <DailyPriceSummary summary={priceSummary} onViewAll={() => document.getElementById("senarai-harga-pasaran")?.scrollIntoView({ behavior: "smooth", block: "start" })} />
 
       <form onSubmit={applyFilters} className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">          <PriceTypeButton label="Semua" description="Semua jenis harga" value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
-          <PriceTypeButton label="Ladang" description="Harga di peringkat ladang" value="farm" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
-          <PriceTypeButton label="Borong" description="Harga pemborong" value="wholesale" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
-          <PriceTypeButton label="Runcit" description="Harga pengguna" value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+        <div className="grid gap-3 md:grid-cols-4">          <PriceTypeButton label={t("common.all")} description={t("marketPrice.allPriceTypes")} value="" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+          <PriceTypeButton label={t("marketPrice.farm")} description={t("marketPrice.farmDescription")} value="farm" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+          <PriceTypeButton label={t("marketPrice.wholesale")} description={t("marketPrice.wholesaleDescription")} value="wholesale" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
+          <PriceTypeButton label={t("marketPrice.retail")} description={t("marketPrice.retailDescription")} value="retail" currentValue={filters.price_type} onSelect={(value) => setFilters({ ...filters, price_type: value })} />
         </div>
 
         <div className="mt-4 grid gap-3 rounded-lg border border-field-100 bg-field-50 p-4 md:grid-cols-[1.2fr_1fr_auto]">
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Komoditi</span>
+            <span>{t("marketPrice.commodity")}</span>
             <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={filters.commodity_name} onChange={(event) => setFilters({ ...filters, commodity_name: event.target.value })}>
-              <option value="">Semua komoditi</option>
+              <option value="">{t("marketPrice.allCommodities")}</option>
               {commodityOptions.map((commodity) => <option key={commodity} value={commodity}>{commodity}</option>)}
             </select>
           </label>
           <label className="space-y-1 text-sm font-medium text-slate-700">
-            <span>Minggu harga</span>
+            <span>{t("marketPrice.priceWeek")}</span>
             <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={selectedWeekValue} onChange={(event) => {
               const [date_from, date_to] = event.target.value.split("|");
               setFilters({ ...filters, date_from: date_from ?? "", date_to: date_to ?? "", location: "" });
             }}>
-              <option value="">Semua minggu</option>
+              <option value="">{t("marketPrice.allWeeks")}</option>
               {weekOptions.map((week) => <option key={week.value} value={week.value}>{week.label}</option>)}
             </select>
           </label>
           <div className="flex items-end gap-2">
-            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 md:min-w-28" type="submit" disabled={isFiltering}>{isFiltering ? "Menapis..." : "Tapis"}</button>
-            <button className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>Reset</button>
+            <button className="min-h-10 flex-1 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 md:min-w-28" type="submit" disabled={isFiltering}>{isFiltering ? t("common.loading") : t("common.filter")}</button>
+            <button className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60" type="button" disabled={isFiltering || !hasActiveFilters} onClick={resetFilters}>{t("common.reset")}</button>
           </div>
         </div>
       </form>
@@ -170,18 +172,18 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       {user.role === "admin" && (
         <div className="grid gap-5 md:grid-cols-2">
           <form onSubmit={submitPrice} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold">Tambah harga pasaran</h3>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Komoditi" value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Lokasi" value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
-            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">Ladang</option><option value="retail">Runcit</option><option value="wholesale">Borong</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">Stabil</option><option value="up">Naik</option><option value="down">Turun</option></select></div>
-            <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? "Menyimpan..." : "Simpan harga"}</button>
+            <h3 className="font-semibold">{t("marketPrice.addMarketPrice")}</h3>
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.commodity")} value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
+            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.location")} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
+            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">{t("marketPrice.farm")}</option><option value="retail">{t("marketPrice.retail")}</option><option value="wholesale">{t("marketPrice.wholesale")}</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">{t("status.stable")}</option><option value="up">{t("status.up")}</option><option value="down">{t("status.down")}</option></select></div>
+            <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.price")} value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.unit")} value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? t("finance.saving") : t("marketPrice.savePrice")}</button>
           </form>
           <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold">Import CSV</h3>
-            <p className="text-sm text-slate-600">Required columns: commodity_name, location, price_type, price, unit, recorded_date. Optional: trend. Price type boleh guna farm, wholesale, atau retail.</p>
+            <h3 className="font-semibold">{t("marketPrice.importCsv")}</h3>
+            <p className="text-sm text-slate-600">{t("marketPrice.csvInstructions")}</p>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? "Mengimport..." : "Import CSV"}</button>
+            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? t("marketPrice.importing") : t("marketPrice.importCsv")}</button>
           </form>
         </div>
       )}
@@ -239,3 +241,4 @@ function formatDisplayDate(dateValue: string) {
   const [year, month, day] = dateValue.split("-");
   return `${day}/${month}/${year}`;
 }
+

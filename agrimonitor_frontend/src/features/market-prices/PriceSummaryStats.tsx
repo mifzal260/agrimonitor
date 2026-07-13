@@ -1,11 +1,14 @@
+import { useTranslation } from "react-i18next";
+
 import type { PriceSummary } from "./priceTrendUtils";
 
 export function PriceSummaryStats({ summary }: { summary: PriceSummary }) {
+  const { t } = useTranslation();
   const stats = [
-    { label: "Naik", value: summary.stats.up, className: "text-emerald-700" },
-    { label: "Turun", value: summary.stats.down, className: "text-amber-700" },
-    { label: "Stabil", value: summary.stats.stable, className: "text-sky-700" },
-    { label: "Dikemas kini", value: summary.updatedCommodityCount, className: "text-field-700" },
+    { label: t("status.up"), value: summary.stats.up, className: "text-emerald-700" },
+    { label: t("status.down"), value: summary.stats.down, className: "text-amber-700" },
+    { label: t("status.stable"), value: summary.stats.stable, className: "text-sky-700" },
+    { label: t("dashboard.updatedOn"), value: summary.updatedCommodityCount, className: "text-field-700" },
   ];
 
   return (

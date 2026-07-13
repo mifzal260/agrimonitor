@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { createHarvest, deleteHarvest, listHarvests, updateHarvest } from "../../api/finance";
 import { listActivities, listPlantingRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
 import type { Harvest } from "../../types/finance";
 import type { Activity, PlantingRecord } from "../../types/monitoring";
+import { formatCurrency as formatLocaleCurrency } from "../../utils/localeFormat";
 
 type FinancePageProps = { token: string };
 type HarvestFormState = { harvest_date: string; quantity: string; unit: string; selling_price_per_unit: string; notes: string };
@@ -13,6 +15,7 @@ const emptyHarvestForm: HarvestFormState = { harvest_date: "", quantity: "", uni
 const ALL_RECORDS_VALUE = "all";
 
 export function FinancePage({ token }: FinancePageProps) {
+  const { t } = useTranslation();
   const [records, setRecords] = useState<PlantingRecord[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
@@ -44,7 +47,7 @@ export function FinancePage({ token }: FinancePageProps) {
       setSelectedRecordId((currentId) => currentId || (recordData.length > 0 ? ALL_RECORDS_VALUE : ""));
       setHarvestRecordId((currentId) => currentId || (recordData.length > 0 ? String(recordData[0].id) : ""));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load finance data");
+      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +59,7 @@ export function FinancePage({ token }: FinancePageProps) {
 
   const isAllRecordsSelected = selectedRecordId === ALL_RECORDS_VALUE;
   const selectedRecord = isAllRecordsSelected ? null : records.find((record) => String(record.id) === selectedRecordId) ?? null;
-  const selectedRecordLabel = isAllRecordsSelected ? "Keseluruhan semua plot" : selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : "Tiada plot dipilih";
+  const selectedRecordLabel = isAllRecordsSelected ? t("finance.allPlotsSummary") : selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : t("finance.noPlotSelected");
   const selectedActivities = useMemo(
     () => isAllRecordsSelected ? activities : activities.filter((activity) => String(activity.planting_record_id) === selectedRecordId),
     [activities, isAllRecordsSelected, selectedRecordId],
@@ -79,7 +82,7 @@ export function FinancePage({ token }: FinancePageProps) {
   async function submitHarvest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!harvestRecordId) {
-      setError("Pilih satu plot dahulu sebelum simpan hasil tuaian.");
+      setError(t("validation.selectPlotBeforeHarvest"));
       return;
     }
 
@@ -91,9 +94,9 @@ export function FinancePage({ token }: FinancePageProps) {
       const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(harvestRecordId) });
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
       setHarvestForm(emptyHarvestForm);
-      setHarvestFormMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
+      setHarvestFormMessage(t("notifications.harvestSaved"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Hasil tuaian gagal disimpan.");
+      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
     } finally {
       setIsSavingHarvest(false);
     }
@@ -127,16 +130,16 @@ export function FinancePage({ token }: FinancePageProps) {
       const savedHarvest = await updateHarvest(token, harvestId, editHarvestForm);
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
       resetInlineHarvestEdit();
-      setHarvestListMessage("Hasil tuaian berjaya dikemas kini.");
+      setHarvestListMessage(t("notifications.harvestUpdated"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Hasil tuaian gagal dikemas kini.");
+      setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
     } finally {
       setIsSavingHarvestEdit(false);
     }
   }
 
   async function removeHarvest(harvestId: number) {
-    const shouldDelete = window.confirm("Padam rekod hasil tuaian ini?");
+    const shouldDelete = window.confirm(t("notifications.confirmDeleteHarvest"));
     if (!shouldDelete) return;
 
     setError("");
@@ -147,13 +150,13 @@ export function FinancePage({ token }: FinancePageProps) {
       await deleteHarvest(token, harvestId);
       setHarvests((currentHarvests) => currentHarvests.filter((harvest) => harvest.id !== harvestId));
       if (editingHarvestId === harvestId) resetInlineHarvestEdit();
-      setHarvestListMessage("Rekod hasil tuaian berjaya dipadam.");
+      setHarvestListMessage(t("notifications.harvestDeleted"));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Hasil tuaian gagal dipadam.");
+      setError(err instanceof Error ? err.message : t("notifications.deleteFailed"));
     }
   }
 
-  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">Loading finance data...</p>;
+  if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">{t("common.loading")}...</p>;
 
   return (
     <div className="space-y-5">
@@ -162,7 +165,7 @@ export function FinancePage({ token }: FinancePageProps) {
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="space-y-1 text-sm font-semibold text-slate-800">
-            <span>Pilih plot untuk kira kos dan hasil</span>
+            <span>{t("finance.selectPlotForCalculation")}</span>
             <PlotSelect records={records} value={selectedRecordId} onChange={(value) => { setSelectedRecordId(value); resetInlineHarvestEdit(); }} />
           </label>
           <div className="rounded-md bg-field-50 px-3 py-2 text-sm text-slate-700">
@@ -172,17 +175,17 @@ export function FinancePage({ token }: FinancePageProps) {
       </section>
 
       <section className="grid gap-3 md:grid-cols-3">
-        <SummaryCard label="Total Cost" value={formatCurrency(totalCost)} tone="warning" />
-        <SummaryCard label="Revenue" value={formatCurrency(totalRevenue)} tone="success" />
-        <SummaryCard label="Profit/Loss" value={formatCurrency(profitLoss)} tone={profitLoss >= 0 ? "success" : "warning"} />
+        <SummaryCard label={t("finance.totalCost")} value={formatCurrency(totalCost)} tone="warning" toneLabel={t("common.attention")} />
+        <SummaryCard label={t("finance.revenue")} value={formatCurrency(totalRevenue)} tone="success" toneLabel={t("common.good")} />
+        <SummaryCard label={t("finance.profitLoss")} value={formatCurrency(profitLoss)} tone={profitLoss >= 0 ? "success" : "warning"} toneLabel={profitLoss >= 0 ? t("common.good") : t("common.attention")} />
       </section>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Kos aktiviti dari Crop Monitoring</h2>
-              <p className="mt-1 text-sm text-slate-600">Kos diambil terus daripada aktiviti ladang untuk {isAllRecordsSelected ? "semua plot" : "plot yang dipilih"}.</p>
+              <h2 className="text-lg font-semibold">{t("finance.activityCostFromMonitoring")}</h2>
+              <p className="mt-1 text-sm text-slate-600">{isAllRecordsSelected ? t("finance.activityCostAllDescription") : t("finance.activityCostDescription")}</p>
             </div>
             <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
               {formatCurrency(totalCost)}
@@ -190,7 +193,7 @@ export function FinancePage({ token }: FinancePageProps) {
           </div>
 
           {selectedActivities.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-600">Belum ada aktiviti untuk {isAllRecordsSelected ? "semua plot" : "plot ini"}.</p>
+            <p className="mt-4 text-sm text-slate-600">{isAllRecordsSelected ? t("finance.noActivitiesForAllPlots") : t("finance.noActivitiesForPlot")}</p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100 text-sm">
               {selectedActivities.slice(0, 8).map((activity) => (
@@ -201,9 +204,9 @@ export function FinancePage({ token }: FinancePageProps) {
                     {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
                   </span>
                   <span className="shrink-0 text-right text-xs text-slate-500">
-                    <span className="block">Bahan: {formatCurrency(toNumber(activity.cost_amount))}</span>
-                    <span className="block">Buruh: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
-                    <span className="mt-1 block text-sm font-semibold text-slate-950">Total: {formatCurrency(getActivityTotalCost(activity))}</span>
+                    <span className="block">{t("finance.material")}: {formatCurrency(toNumber(activity.cost_amount))}</span>
+                    <span className="block">{t("finance.labor")}: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
+                    <span className="mt-1 block text-sm font-semibold text-slate-950">{t("finance.total")}: {formatCurrency(getActivityTotalCost(activity))}</span>
                   </span>
                 </li>
               ))}
@@ -213,22 +216,22 @@ export function FinancePage({ token }: FinancePageProps) {
 
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div>
-            <h2 className="text-lg font-semibold">Rekod hasil tuaian</h2>
-            <p className="mt-1 text-sm text-slate-600">Pilih plot untuk simpan hasil tuaian. Jumlah di atas masih boleh dikira untuk semua plot.</p>
+            <h2 className="text-lg font-semibold">{t("finance.recordHarvest")}</h2>
+            <p className="mt-1 text-sm text-slate-600">{t("finance.recordHarvestDescription")}</p>
           </div>
           <label className="block space-y-1 text-sm font-semibold text-slate-800">
-            <span>Plot hasil tuaian</span>
+            <span>{t("finance.harvestPlot")}</span>
             <HarvestPlotSelect records={records} value={harvestRecordId} onChange={setHarvestRecordId} />
           </label>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
           <div className="grid grid-cols-3 gap-3">
-            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Kuantiti" value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required />
-            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={harvestForm.unit} onChange={(event) => setHarvestForm({ ...harvestForm, unit: event.target.value })} required />
-            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required />
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.quantity")} value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required />
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.unit")} value={harvestForm.unit} onChange={(event) => setHarvestForm({ ...harvestForm, unit: event.target.value })} required />
+            <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.pricePerUnit")} value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required />
           </div>
-          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
+          <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.notes")} value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
           <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !harvestRecordId}>
-            {isSavingHarvest ? "Menyimpan..." : "Simpan hasil tuaian"}
+            {isSavingHarvest ? t("finance.saving") : t("finance.saveHarvest")}
           </button>
           {harvestFormMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestFormMessage}</p>}
         </form>
@@ -236,14 +239,14 @@ export function FinancePage({ token }: FinancePageProps) {
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="font-semibold">{isAllRecordsSelected ? "Hasil tuaian semua plot" : "Hasil tuaian plot dipilih"}</h3>
+          <h3 className="font-semibold">{isAllRecordsSelected ? t("finance.harvestAllPlots") : t("finance.harvestSelectedPlot")}</h3>
           <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
             {formatCurrency(totalRevenue)}
           </span>
         </div>
         {harvestListMessage && <p className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestListMessage}</p>}
         {selectedHarvests.length === 0 ? (
-          <p className="mt-3 text-sm text-slate-600">Belum ada hasil tuaian untuk {isAllRecordsSelected ? "semua plot" : "plot ini"}.</p>
+          <p className="mt-3 text-sm text-slate-600">{isAllRecordsSelected ? t("finance.noHarvestForAllPlots") : t("finance.noHarvestForPlot")}</p>
         ) : (
           <ul className="mt-3 divide-y divide-slate-100 text-sm">
             {selectedHarvests.slice(0, 8).map((harvest) => (
@@ -252,11 +255,11 @@ export function FinancePage({ token }: FinancePageProps) {
                   <form onSubmit={submitHarvestEdit} className="space-y-2 rounded-md bg-field-50 p-3">
                     <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={editHarvestForm.harvest_date} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, harvest_date: event.target.value })} required />
                     <div className="grid grid-cols-3 gap-2">
-                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Kuantiti" value={editHarvestForm.quantity} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, quantity: event.target.value })} required />
-                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Unit" value={editHarvestForm.unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, unit: event.target.value })} required />
-                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={editHarvestForm.selling_price_per_unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, selling_price_per_unit: event.target.value })} required />
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.quantity")} value={editHarvestForm.quantity} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, quantity: event.target.value })} required />
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.unit")} value={editHarvestForm.unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, unit: event.target.value })} required />
+                      <input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.pricePerUnit")} value={editHarvestForm.selling_price_per_unit} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, selling_price_per_unit: event.target.value })} required />
                     </div>
-                    <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={editHarvestForm.notes} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, notes: event.target.value })} />
+                    <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.notes")} value={editHarvestForm.notes} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, notes: event.target.value })} />
                     <div className="flex gap-2">
                       <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvestEdit}>{isSavingHarvestEdit ? "Menyimpan..." : "Simpan"}</button>
                       <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={resetInlineHarvestEdit}>Batal</button>
@@ -267,7 +270,7 @@ export function FinancePage({ token }: FinancePageProps) {
                     <span>
                       <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
                       {isAllRecordsSelected && <span className="block text-xs text-slate-500">{records.find((record) => record.id === harvest.planting_record_id)?.field_name ?? "Plot"}</span>}
-                      <span className="block text-xs text-slate-500">Harga/unit: RM {harvest.selling_price_per_unit}</span>
+                      <span className="block text-xs text-slate-500">{t("finance.pricePerUnit")}: {formatCurrency(toNumber(harvest.selling_price_per_unit))}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
                       <span className="font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
@@ -277,8 +280,8 @@ export function FinancePage({ token }: FinancePageProps) {
                     </span>
                     {openHarvestMenuId === harvest.id && (
                       <div className="absolute right-0 top-10 z-20 w-36 rounded-lg border border-slate-100 bg-white p-2 text-sm shadow-lg">
-                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => startEditHarvest(harvest)}>Edit</button>
-                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => void removeHarvest(harvest.id)}>Padam</button>
+                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => startEditHarvest(harvest)}>{t("common.edit")}</button>
+                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => void removeHarvest(harvest.id)}>{t("common.delete")}</button>
                       </div>
                     )}
                   </div>
@@ -294,9 +297,10 @@ export function FinancePage({ token }: FinancePageProps) {
 
 
 function HarvestPlotSelect({ records, value, onChange }: { records: PlantingRecord[]; value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
   return (
     <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
-      <option value="">Pilih plot</option>
+      <option value="">{t("forms.selectPlot")}</option>
       {records.map((record) => (
         <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
       ))}
@@ -304,10 +308,11 @@ function HarvestPlotSelect({ records, value, onChange }: { records: PlantingReco
   );
 }
 function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
   return (
     <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
-      <option value="">Pilih plot</option>
-      <option value={ALL_RECORDS_VALUE}>Semua plot</option>
+      <option value="">{t("forms.selectPlot")}</option>
+      <option value={ALL_RECORDS_VALUE}>{t("finance.allPlots")}</option>
       {records.map((record) => (
         <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
       ))}
@@ -315,8 +320,8 @@ function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; v
   );
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: string; tone: "info" | "success" | "warning" }) {
-  return <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-slate-600">{label}</p><StatusBadge label={tone} tone={tone} /></div><p className="mt-3 text-2xl font-bold text-slate-950">{value}</p></article>;
+function SummaryCard({ label, value, tone, toneLabel }: { label: string; value: string; tone: "info" | "success" | "warning"; toneLabel: string }) {
+  return <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm"><div className="flex items-center justify-between gap-2"><p className="text-sm font-medium text-slate-600">{label}</p><StatusBadge label={toneLabel} tone={tone} /></div><p className="mt-3 text-2xl font-bold text-slate-950">{value}</p></article>;
 }
 
 function getActivityTotalCost(activity: Activity) {
@@ -329,6 +334,10 @@ function toNumber(value: string | null | undefined) {
 }
 
 function formatCurrency(value: number) {
-  return `RM ${value.toFixed(2)}`;
+  return formatLocaleCurrency(value);
 }
+
+
+
+
 

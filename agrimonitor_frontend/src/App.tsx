@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { getMe } from "./api/auth";
+import { LanguageSwitcher } from "./components/common/LanguageSwitcher";
 import { StatusBadge } from "./components/StatusBadge";
 import { AuthPage } from "./features/auth/AuthPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
@@ -15,34 +17,34 @@ type AppView = "dashboard" | "monitoring" | "market" | "finance";
 
 type NavigationItem = { view: AppView; label: string; shortLabel: string; description: string; badge?: string };
 
-const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
-  {
-    label: "Ringkasan",
-    items: [{ view: "dashboard", label: "Papan Pemuka", shortLabel: "Utama", description: "Ringkasan, amaran, dan trend harga" }],
-  },
-  {
-    label: "Ladang",
-    items: [{ view: "monitoring", label: "Pemantauan Tanaman", shortLabel: "Tanaman", description: "Plot, aktiviti, simptom, dan risiko", badge: "Utama" }],
-  },
-  {
-    label: "Perniagaan",
-    items: [
-      { view: "market", label: "Harga Pasaran", shortLabel: "Harga", description: "Harga komoditi dan import CSV" },
-      { view: "finance", label: "Kewangan", shortLabel: "Kewangan", description: "Kos, hasil tuaian, dan untung/rugi" },
-    ],
-  },
-];
-
-const navigationItems = navigationGroups.flatMap((group) => group.items);
-
 function App() {
+  const { t } = useTranslation();
   const [token, setToken] = useState(() => localStorage.getItem(tokenStorageKey));
   const [user, setUser] = useState<User | null>(null);
   const [view, setView] = useState<AppView>("dashboard");
   const [isCheckingSession, setIsCheckingSession] = useState(Boolean(token));
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const activeItem = useMemo(() => navigationItems.find((item) => item.view === view) ?? navigationItems[0], [view]);
+  const navigationGroups = useMemo<Array<{ label: string; items: NavigationItem[] }>>(() => [
+    {
+      label: t("navigation.summary"),
+      items: [{ view: "dashboard", label: t("navigation.dashboard"), shortLabel: t("navigation.dashboardShort"), description: t("navigation.dashboardDescription") }],
+    },
+    {
+      label: t("navigation.farm"),
+      items: [{ view: "monitoring", label: t("navigation.cropMonitoring"), shortLabel: t("navigation.cropMonitoringShort"), description: t("navigation.cropMonitoringDescription"), badge: t("navigation.dashboardShort") }],
+    },
+    {
+      label: t("navigation.business"),
+      items: [
+        { view: "market", label: t("navigation.marketPrice"), shortLabel: t("navigation.marketPriceShort"), description: t("navigation.marketPriceDescription") },
+        { view: "finance", label: t("navigation.finance"), shortLabel: t("navigation.financeShort"), description: t("navigation.financeDescription") },
+      ],
+    },
+  ], [t]);
+
+  const navigationItems = useMemo(() => navigationGroups.flatMap((group) => group.items), [navigationGroups]);
+  const activeItem = useMemo(() => navigationItems.find((item) => item.view === view) ?? navigationItems[0], [navigationItems, view]);
 
   useEffect(() => {
     if (!token) { setIsCheckingSession(false); return; }
@@ -72,7 +74,7 @@ function App() {
     setIsUserMenuOpen(false);
   }
 
-  if (isCheckingSession) return <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">Menyemak sesi...</main>;
+  if (isCheckingSession) return <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">{t("header.checkingSession")}</main>;
 
   return (
     <ProtectedRoute user={user} fallback={<AuthPage onAuthenticated={handleAuthenticated} />}>
@@ -82,12 +84,12 @@ function App() {
             <div className="flex items-center gap-3 border-b border-slate-200 pb-5">
               <div className="flex h-11 w-11 items-center justify-center rounded-md bg-field-700 text-lg font-bold text-white">AM</div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-field-700">AgriMonitor</p>
-                <h1 className="text-lg font-bold leading-tight">Platform</h1>
+                <p className="text-xs font-semibold uppercase tracking-wide text-field-700">{t("common.appName")}</p>
+                <h1 className="text-lg font-bold leading-tight">{t("common.platform")}</h1>
               </div>
             </div>
 
-            <nav className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto" aria-label="Navigasi utama">
+            <nav className="mt-5 flex flex-1 flex-col gap-5 overflow-y-auto" aria-label={t("navigation.mainNavigation")}>
               {navigationGroups.map((group) => (
                 <div key={group.label}>
                   <p className="px-3 text-[11px] font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
@@ -101,8 +103,8 @@ function App() {
             </nav>
 
             <div className="rounded-lg border border-field-100 bg-field-50 p-4 text-center">
-              <p className="text-sm font-bold text-slate-950">Sistem Sedia Digunakan</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">Pantau tanaman, harga, kos, dan hasil tuaian dalam satu ruang kerja.</p>
+              <p className="text-sm font-bold text-slate-950">{t("header.systemReady")}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">{t("header.systemReadyDescription")}</p>
             </div>
           </aside>
 
@@ -110,34 +112,37 @@ function App() {
             <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4 shadow-sm md:px-8">
               <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold text-slate-500"><span className="text-field-700">AgriMonitor</span> / {activeItem.label}</p>
+                  <p className="text-xs font-semibold text-slate-500"><span className="text-field-700">{t("common.appName")}</span> / {activeItem.label}</p>
                   <h2 className="mt-1 text-xl font-bold md:text-2xl">{activeItem.label}</h2>
                 </div>
 
-                <div className="relative">
-                  <button
-                    className="flex items-center gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-2 pr-3 text-left shadow-sm hover:bg-slate-50"
-                    type="button"
-                    onClick={() => setIsUserMenuOpen((open) => !open)}
-                    aria-expanded={isUserMenuOpen}
-                  >
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-field-700 text-sm font-bold text-white">{user?.name?.slice(0, 1).toUpperCase() ?? "U"}</span>
-                    <span className="hidden sm:block">
-                      <span className="block text-sm font-semibold text-slate-950">{user?.name}</span>
-                      <span className="block text-xs text-slate-500">{user?.role}</span>
-                    </span>
-                    <span className="text-slate-400">⌄</span>
-                  </button>
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <LanguageSwitcher />
+                  <div className="relative">
+                    <button
+                      className="flex items-center gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-2 pr-3 text-left shadow-sm hover:bg-slate-50"
+                      type="button"
+                      onClick={() => setIsUserMenuOpen((open) => !open)}
+                      aria-expanded={isUserMenuOpen}
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-field-700 text-sm font-bold text-white">{user?.name?.slice(0, 1).toUpperCase() ?? "U"}</span>
+                      <span className="hidden sm:block">
+                        <span className="block text-sm font-semibold text-slate-950">{user?.name}</span>
+                        <span className="block text-xs text-slate-500">{user?.role === "admin" ? t("header.admin") : t("header.user")}</span>
+                      </span>
+                      <span className="text-slate-400">⌄</span>
+                    </button>
 
-                  {isUserMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
-                      <div className="border-b border-slate-100 pb-3">
-                        <p className="text-sm font-semibold text-slate-950">{user?.name}</p>
-                        <div className="mt-2"><StatusBadge label={user?.role === "admin" ? "Pentadbir" : "Pengguna"} tone={user?.role === "admin" ? "success" : "info"} /></div>
+                    {isUserMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                        <div className="border-b border-slate-100 pb-3">
+                          <p className="text-sm font-semibold text-slate-950">{user?.name}</p>
+                          <div className="mt-2"><StatusBadge label={user?.role === "admin" ? t("header.admin") : t("header.user")} tone={user?.role === "admin" ? "success" : "info"} /></div>
+                        </div>
+                        <button className="mt-3 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={handleLogout}>{t("header.logout")}</button>
                       </div>
-                      <button className="mt-3 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-red-700 hover:bg-red-50" type="button" onClick={handleLogout}>Log keluar</button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </header>
@@ -151,7 +156,7 @@ function App() {
           </section>
         </div>
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label="Navigasi mudah alih">
+        <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label={t("navigation.mobileNavigation")}>
           {navigationItems.map((item) => (
             <MobileNavButton key={item.view} item={item} active={view === item.view} onClick={() => handleNavigate(item.view)} />
           ))}

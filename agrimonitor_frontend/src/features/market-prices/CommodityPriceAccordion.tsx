@@ -1,4 +1,7 @@
+import { useTranslation } from "react-i18next";
+
 import { StatusBadge } from "../../components/StatusBadge";
+import { formatCurrency, formatDateShort } from "../../utils/localeFormat";
 import {
   calculateLevelDifference,
   selectPrimaryPrice,
@@ -14,13 +17,14 @@ type CommodityPriceAccordionProps = {
   onToggle: () => void;
 };
 
-const PRICE_LEVELS: Array<{ key: PriceLevel; label: string }> = [
-  { key: "farm", label: "Harga Ladang" },
-  { key: "wholesale", label: "Harga Borong" },
-  { key: "retail", label: "Harga Runcit" },
+const PRICE_LEVELS: Array<{ key: PriceLevel; labelKey: string }> = [
+  { key: "farm", labelKey: "marketPrice.farmPrice" },
+  { key: "wholesale", labelKey: "marketPrice.wholesalePrice" },
+  { key: "retail", labelKey: "marketPrice.retailPrice" },
 ];
 
 export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onToggle }: CommodityPriceAccordionProps) {
+  const { t } = useTranslation();
   const primary = selectPrimaryPrice(group, selectedPriceType);
   const panelId = "commodity-price-" + slugify(group.commodityName);
   const articleClass = "overflow-hidden rounded-lg border bg-white shadow-sm transition-colors " + (isOpen ? "border-field-700" : "border-field-100");
@@ -40,20 +44,20 @@ export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onTo
           {primary ? (
             <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
               <p className="text-2xl font-bold text-slate-950">
-                RM {formatMoney(primary.current.price)}
+                {formatCurrency(primary.current.price)}
                 <span className="ml-1 text-sm font-medium text-slate-600">/ {primary.current.unit}</span>
               </p>
-              <StatusBadge label={trendSymbol(primary.trend) + " " + trendLabel(primary.trend)} tone={trendTone(primary.trend)} />
+              <StatusBadge label={trendSymbol(primary.trend) + " " + trendLabel(primary.trend, t)} tone={trendTone(primary.trend)} />
               <p className="w-full text-xs text-slate-500">
-                {priceTypeLabel(primary.current.price_type)} · Dikemas kini {formatMalayDate(primary.current.recorded_date)}
+                {priceTypeLabel(primary.current.price_type, t)} · {t("dashboard.updatedOn")} {formatDateShort(primary.current.recorded_date)}
               </p>
             </div>
           ) : (
-            <p className="mt-2 text-sm text-slate-600">Data belum tersedia</p>
+            <p className="mt-2 text-sm text-slate-600">{t("marketPrice.dataNotAvailable")}</p>
           )}
         </div>
         <span className="flex shrink-0 items-center gap-2 text-sm font-semibold text-field-700">
-          <span className="text-xs sm:text-sm">{isOpen ? "Tutup harga" : "Lihat semua harga"}</span>
+          <span className="text-xs sm:text-sm">{isOpen ? t("marketPrice.closePrices") : t("marketPrice.viewAllPrices")}</span>
           <span aria-hidden="true" className={"text-xl transition-transform duration-300 " + (isOpen ? "rotate-180" : "")}>⌄</span>
         </span>
       </button>
@@ -63,7 +67,7 @@ export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onTo
           <div className="border-t border-field-100 p-4">
             <div className="grid gap-3 md:grid-cols-3">
               {PRICE_LEVELS.map((level) => (
-                <PriceLevelPanel highlight={group.levels[level.key]} key={level.key} label={level.label} />
+                <PriceLevelPanel highlight={group.levels[level.key]} key={level.key} label={t(level.labelKey)} />
               ))}
             </div>
             <PriceDifferences group={group} />
@@ -76,21 +80,22 @@ export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onTo
 }
 
 function PriceLevelPanel({ highlight, label }: { highlight: PriceHighlight | null; label: string }) {
+  const { t } = useTranslation();
   return (
     <section className="rounded-lg border border-field-100 bg-field-50 p-4">
       <h4 className="text-sm font-semibold text-slate-700">{label}</h4>
       {!highlight ? (
-        <p className="mt-4 text-sm text-slate-500">Data belum tersedia</p>
+        <p className="mt-4 text-sm text-slate-500">{t("marketPrice.dataNotAvailable")}</p>
       ) : (
         <>
           <p className="mt-3 text-xl font-bold text-slate-950">
-            RM {formatMoney(highlight.current.price)}
+            {formatCurrency(highlight.current.price)}
             <span className="ml-1 text-xs font-medium text-slate-600">/ {highlight.current.unit}</span>
           </p>
           <p className={"mt-2 text-sm font-semibold " + trendTextClass(highlight.trend)}>
-            {trendSymbol(highlight.trend)} {formatChange(highlight)}
+            {trendSymbol(highlight.trend)} {formatChange(highlight, t)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">{formatMalayDate(highlight.current.recorded_date)}</p>
+          <p className="mt-1 text-xs text-slate-500">{formatDateShort(highlight.current.recorded_date)}</p>
         </>
       )}
     </section>
@@ -98,28 +103,29 @@ function PriceLevelPanel({ highlight, label }: { highlight: PriceHighlight | nul
 }
 
 function PriceDifferences({ group }: { group: CommodityPriceGroup }) {
+  const { t } = useTranslation();
   const comparisons = [
-    { label: "Ladang → Borong", value: calculateLevelDifference(group.levels.farm, group.levels.wholesale) },
-    { label: "Borong → Runcit", value: calculateLevelDifference(group.levels.wholesale, group.levels.retail) },
-    { label: "Ladang → Runcit", value: calculateLevelDifference(group.levels.farm, group.levels.retail) },
+    { label: t("marketPrice.farmToWholesale"), value: calculateLevelDifference(group.levels.farm, group.levels.wholesale) },
+    { label: t("marketPrice.wholesaleToRetail"), value: calculateLevelDifference(group.levels.wholesale, group.levels.retail) },
+    { label: t("marketPrice.farmToRetail"), value: calculateLevelDifference(group.levels.farm, group.levels.retail) },
   ];
 
   return (
     <section className="mt-4 border-t border-slate-200 pt-4">
-      <h4 className="font-semibold text-slate-950">Perbezaan Harga</h4>
+      <h4 className="font-semibold text-slate-950">{t("marketPrice.priceDifference")}</h4>
       <div className="mt-3 grid gap-2 md:grid-cols-3">
         {comparisons.map((comparison) => (
           <div className="rounded-lg border border-slate-200 px-3 py-3" key={comparison.label}>
             <p className="text-xs font-medium text-slate-600">{comparison.label}</p>
             {comparison.value ? (
               <p className="mt-1 font-semibold text-slate-950">
-                RM {formatSigned(comparison.value.amount, 2)}
+                {formatCurrency(comparison.value.amount, { signed: true })}
                 <span className="ml-1 text-xs font-medium text-slate-600">
-                  ({comparison.value.percent === null ? "peratus tidak tersedia" : formatSigned(comparison.value.percent, 1) + "%"})
+                  ({comparison.value.percent === null ? t("marketPrice.percentageNotAvailable") : formatSigned(comparison.value.percent, 1) + "%"})
                 </span>
               </p>
             ) : (
-              <p className="mt-1 text-sm text-slate-500">Data belum tersedia</p>
+              <p className="mt-1 text-sm text-slate-500">{t("marketPrice.dataNotAvailable")}</p>
             )}
           </div>
         ))}
@@ -129,30 +135,31 @@ function PriceDifferences({ group }: { group: CommodityPriceGroup }) {
 }
 
 function PriceHistory({ history }: { history: CommodityPriceGroup["history"] }) {
+  const { t } = useTranslation();
   return (
     <section className="mt-4 border-t border-slate-200 pt-4">
       <div>
-        <h4 className="font-semibold text-slate-950">Sejarah harga terdahulu</h4>
-        <p className="mt-1 text-xs text-slate-500">Rekod sebelum tarikh pantauan semasa.</p>
+        <h4 className="font-semibold text-slate-950">{t("marketPrice.priceHistory")}</h4>
+        <p className="mt-1 text-xs text-slate-500">{t("marketPrice.priceHistoryDescription")}</p>
       </div>
 
       {history.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">Belum ada sejarah harga.</p>
+        <p className="mt-3 text-sm text-slate-500">{t("marketPrice.noPriceHistory")}</p>
       ) : (
         <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-200">
           <table className="min-w-[640px] w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-field-50 text-left text-xs uppercase text-slate-500">
               <tr>
-                <th className="px-3 py-2 font-semibold">Tarikh</th>
-                <th className="px-3 py-2 text-right font-semibold">Ladang</th>
-                <th className="px-3 py-2 text-right font-semibold">Borong</th>
-                <th className="px-3 py-2 text-right font-semibold">Runcit</th>
+                <th className="px-3 py-2 font-semibold">{t("marketPrice.date")}</th>
+                <th className="px-3 py-2 text-right font-semibold">{t("marketPrice.farm")}</th>
+                <th className="px-3 py-2 text-right font-semibold">{t("marketPrice.wholesale")}</th>
+                <th className="px-3 py-2 text-right font-semibold">{t("marketPrice.retail")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {history.map((row) => (
                 <tr className="hover:bg-field-50/60" key={row.date}>
-                  <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700">{formatMalayDate(row.date)}</td>
+                  <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700">{formatDateShort(row.date)}</td>
                   <HistoryPriceCell highlight={row.levels.farm} />
                   <HistoryPriceCell highlight={row.levels.wholesale} />
                   <HistoryPriceCell highlight={row.levels.retail} />
@@ -167,45 +174,35 @@ function PriceHistory({ history }: { history: CommodityPriceGroup["history"] }) 
 }
 
 function HistoryPriceCell({ highlight }: { highlight: PriceHighlight | null }) {
-  if (!highlight) {
-    return <td className="px-3 py-2 text-right text-xs text-slate-400">Tiada data</td>;
-  }
+  const { t } = useTranslation();
+  if (!highlight) return <td className="px-3 py-2 text-right text-xs text-slate-400">{t("marketPrice.noData")}</td>;
 
   return (
     <td className="whitespace-nowrap px-3 py-2 text-right">
-      <p className="font-semibold text-slate-950">RM {formatMoney(highlight.current.price)}</p>
+      <p className="font-semibold text-slate-950">{formatCurrency(highlight.current.price)}</p>
       <p className={"text-xs " + trendTextClass(highlight.trend)}>
-        {highlight.changeAmount === null ? "Tiada perbandingan" : trendSymbol(highlight.trend) + " RM " + formatSigned(highlight.changeAmount, 2)}
+        {highlight.changeAmount === null ? t("marketPrice.noComparison") : trendSymbol(highlight.trend) + " " + formatCurrency(highlight.changeAmount, { signed: true })}
       </p>
     </td>
   );
 }
 
-function formatChange(highlight: PriceHighlight) {
-  if (highlight.changeAmount === null) return "Tiada harga terdahulu";
-  const percent = highlight.changePercent === null ? "peratus tidak tersedia" : formatSigned(highlight.changePercent, 1) + "%";
-  return "RM " + formatSigned(highlight.changeAmount, 2) + " · " + percent;
-}
-
-function formatMoney(value: string) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(2) : "0.00";
+function formatChange(highlight: PriceHighlight, t: (key: string) => string) {
+  if (highlight.changeAmount === null) return t("marketPrice.noPreviousPrice");
+  const percent = highlight.changePercent === null ? t("marketPrice.percentageNotAvailable") : formatSigned(highlight.changePercent, 1) + "%";
+  return formatCurrency(highlight.changeAmount, { signed: true }) + " · " + percent;
 }
 
 function formatSigned(value: number, digits: number) {
   return (value > 0 ? "+" : "") + value.toFixed(digits);
 }
 
-function formatMalayDate(dateValue: string) {
-  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(new Date(dateValue + "T00:00:00"));
+function priceTypeLabel(priceType: string, t: (key: string) => string) {
+  return ({ farm: t("marketPrice.farm"), wholesale: t("marketPrice.wholesale"), retail: t("marketPrice.retail") } as Record<string, string>)[priceType] ?? priceType;
 }
 
-function priceTypeLabel(priceType: string) {
-  return ({ farm: "Ladang", wholesale: "Borong", retail: "Runcit" } as Record<string, string>)[priceType] ?? priceType;
-}
-
-function trendLabel(trend: PriceHighlight["trend"]) {
-  return ({ up: "Naik", down: "Turun", stable: "Stabil", unavailable: "Tiada perbandingan" } as const)[trend];
+function trendLabel(trend: PriceHighlight["trend"], t: (key: string) => string) {
+  return ({ up: t("status.up"), down: t("status.down"), stable: t("status.stable"), unavailable: t("marketPrice.noComparison") } as const)[trend];
 }
 
 function trendSymbol(trend: PriceHighlight["trend"]) {
