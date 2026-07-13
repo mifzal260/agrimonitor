@@ -109,7 +109,7 @@ function App() {
           </aside>
 
           <section className="flex min-h-screen flex-1 flex-col md:pl-72">
-            <header className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-4 shadow-sm md:px-8">
+            <header className="soft-glass-header sticky top-0 z-20 px-4 py-4 md:px-8">
               <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-slate-500"><span className="text-field-700">{t("common.appName")}</span> / {activeItem.label}</p>
@@ -120,7 +120,7 @@ function App() {
                   <LanguageSwitcher />
                   <div className="relative">
                     <button
-                      className="flex items-center gap-3 rounded-full border border-slate-200 bg-white py-1.5 pl-2 pr-3 text-left shadow-sm hover:bg-slate-50"
+                      className="soft-glass-pill flex items-center gap-3 rounded-full py-1.5 pl-2 pr-3 text-left transition hover:bg-white/90"
                       type="button"
                       onClick={() => setIsUserMenuOpen((open) => !open)}
                       aria-expanded={isUserMenuOpen}
@@ -134,7 +134,7 @@ function App() {
                     </button>
 
                     {isUserMenuOpen && (
-                      <div className="absolute right-0 mt-2 w-64 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                      <div className="soft-glass-menu absolute right-0 mt-2 w-64 p-3">
                         <div className="border-b border-slate-100 pb-3">
                           <p className="text-sm font-semibold text-slate-950">{user?.name}</p>
                           <div className="mt-2"><StatusBadge label={user?.role === "admin" ? t("header.admin") : t("header.user")} tone={user?.role === "admin" ? "success" : "info"} /></div>
@@ -197,3 +197,4 @@ function MobileNavButton({ item, active, onClick }: { item: NavigationItem; acti
 }
 
 export default App;
+

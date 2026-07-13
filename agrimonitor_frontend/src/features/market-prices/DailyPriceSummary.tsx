@@ -7,7 +7,7 @@ import type { PriceSummary } from "./priceTrendUtils";
 export function DailyPriceSummary({ summary, onViewAll }: { summary: PriceSummary; onViewAll: () => void }) {
   const { t } = useTranslation();
   return (
-    <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+    <section className="soft-glass-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{t("marketPrice.dailySummary")}</h2>
@@ -24,4 +24,5 @@ export function DailyPriceSummary({ summary, onViewAll }: { summary: PriceSummar
     </section>
   );
 }
+
 

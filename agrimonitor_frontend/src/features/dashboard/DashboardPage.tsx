@@ -136,7 +136,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
 
 function SummaryCard({ label, value, tone = "info", toneLabel }: { label: string; value: string; tone?: "info" | "success" | "warning"; toneLabel: string }) {
   return (
-    <article className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+    <article className="soft-glass-card p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-slate-600">{label}</p>
         <StatusBadge label={toneLabel} tone={tone} />
@@ -192,3 +192,5 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
 function parseDateValue(dateValue: string) {
   return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
 }
+
+

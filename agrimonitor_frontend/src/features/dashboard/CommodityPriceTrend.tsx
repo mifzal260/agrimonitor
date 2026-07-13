@@ -48,7 +48,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
   const yAxis = useMemo(() => buildYAxis(chartData, visibleLineKeys), [chartData, visibleLineKeys]);
 
   return (
-    <section className="min-w-0 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+    <section className="soft-glass-card min-w-0 p-4">
       <div>
         <h2 className="text-lg font-semibold">{t("dashboard.commodityPriceTrend")}</h2>
         <p className="mt-1 text-sm text-slate-600">{t("dashboard.commodityPriceTrendDescription")}</p>
@@ -210,4 +210,5 @@ function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
   const ticks = Array.from({ length: Math.round((upper - lower) / niceStep) + 1 }, (_, index) => Number((lower + index * niceStep).toFixed(2)));
   return { domain: [lower, upper] as [number, number], ticks };
 }
+
 
