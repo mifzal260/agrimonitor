@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.alert import Alert
-from app.models.cost import Cost
+from app.models.activity import Activity
 from app.models.harvest import Harvest
 from app.models.market_price import MarketPrice
 from app.models.planting_record import PlantingRecord
@@ -27,7 +27,10 @@ def get_dashboard_summary(db: Session, user_id: int) -> DashboardSummary:
         select(func.count()).select_from(Alert).where(Alert.user_id == user_id, Alert.risk_level == "high", Alert.is_read.is_(False))
     ) or 0
 
-    total_cost = db.scalar(select(func.coalesce(func.sum(Cost.amount), 0)).where(Cost.user_id == user_id)) or Decimal("0")
+    activity_cost = func.coalesce(Activity.cost_amount, 0) + func.coalesce(Activity.labor_cost_amount, 0)
+    total_cost = db.scalar(
+        select(func.coalesce(func.sum(activity_cost), 0)).where(Activity.user_id == user_id)
+    ) or Decimal("0")
     total_revenue = db.scalar(select(func.coalesce(func.sum(Harvest.revenue), 0)).where(Harvest.user_id == user_id)) or Decimal("0")
     profit_loss = Decimal(total_revenue) - Decimal(total_cost)
 
