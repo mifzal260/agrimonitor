@@ -209,14 +209,23 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
     ...records.map((record) => record.planting_date),
     ...symptoms.map((symptom) => symptom.observed_at),
     ...prices.map((price) => price.recorded_date),
-  ].filter(Boolean).sort();
+  ].filter(Boolean);
+
+  dates.sort((a, b) => parseDateValue(a).getTime() - parseDateValue(b).getTime());
   return dates.length > 0 ? dates[dates.length - 1] : "";
 }
 
 function formatDisplayDate(dateValue: string) {
   if (!dateValue) return "";
-  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dateValue}T00:00:00`));
+  const date = parseDateValue(dateValue);
+  if (Number.isNaN(date.getTime())) return "Tiada rekod";
+  return new Intl.DateTimeFormat("ms-MY", { day: "numeric", month: "short", year: "numeric" }).format(date);
 }
+
+function parseDateValue(dateValue: string) {
+  return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
+}
+
 function summaryToneLabel(tone: "info" | "success" | "warning") {
   const labels = { info: "Info", success: "Baik", warning: "Perhatian" };
   return labels[tone];
