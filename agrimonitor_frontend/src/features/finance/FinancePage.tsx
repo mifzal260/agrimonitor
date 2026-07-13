@@ -17,6 +17,7 @@ export function FinancePage({ token }: FinancePageProps) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [harvests, setHarvests] = useState<Harvest[]>([]);
   const [selectedRecordId, setSelectedRecordId] = useState("");
+  const [harvestRecordId, setHarvestRecordId] = useState("");
   const [editingHarvestId, setEditingHarvestId] = useState<number | null>(null);
   const [openHarvestMenuId, setOpenHarvestMenuId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -41,6 +42,7 @@ export function FinancePage({ token }: FinancePageProps) {
       setActivities(activityData);
       setHarvests(harvestData);
       setSelectedRecordId((currentId) => currentId || (recordData.length > 0 ? ALL_RECORDS_VALUE : ""));
+      setHarvestRecordId((currentId) => currentId || (recordData.length > 0 ? String(recordData[0].id) : ""));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load finance data");
     } finally {
@@ -76,7 +78,7 @@ export function FinancePage({ token }: FinancePageProps) {
 
   async function submitHarvest(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedRecordId || isAllRecordsSelected) {
+    if (!harvestRecordId) {
       setError("Pilih satu plot dahulu sebelum simpan hasil tuaian.");
       return;
     }
@@ -86,7 +88,7 @@ export function FinancePage({ token }: FinancePageProps) {
     setHarvestListMessage("");
     setIsSavingHarvest(true);
     try {
-      const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(selectedRecordId) });
+      const savedHarvest = await createHarvest(token, { ...harvestForm, planting_record_id: Number(harvestRecordId) });
       setHarvests((currentHarvests) => [savedHarvest, ...currentHarvests.filter((harvest) => harvest.id !== savedHarvest.id)]);
       setHarvestForm(emptyHarvestForm);
       setHarvestFormMessage("Hasil tuaian berjaya disimpan dan jumlah keuntungan sudah dikemas kini.");
@@ -212,8 +214,12 @@ export function FinancePage({ token }: FinancePageProps) {
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
           <div>
             <h2 className="text-lg font-semibold">Rekod hasil tuaian</h2>
-            <p className="mt-1 text-sm text-slate-600">Hasil ini akan dikira bersama kos aktiviti. Pilih satu plot jika mahu tambah rekod hasil baru.</p>
+            <p className="mt-1 text-sm text-slate-600">Pilih plot untuk simpan hasil tuaian. Jumlah di atas masih boleh dikira untuk semua plot.</p>
           </div>
+          <label className="block space-y-1 text-sm font-semibold text-slate-800">
+            <span>Plot hasil tuaian</span>
+            <HarvestPlotSelect records={records} value={harvestRecordId} onChange={setHarvestRecordId} />
+          </label>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={harvestForm.harvest_date} onChange={(event) => setHarvestForm({ ...harvestForm, harvest_date: event.target.value })} required />
           <div className="grid grid-cols-3 gap-3">
             <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Kuantiti" value={harvestForm.quantity} onChange={(event) => setHarvestForm({ ...harvestForm, quantity: event.target.value })} required />
@@ -221,8 +227,8 @@ export function FinancePage({ token }: FinancePageProps) {
             <input className="rounded-md border border-slate-300 px-3 py-2" placeholder="Harga/unit" value={harvestForm.selling_price_per_unit} onChange={(event) => setHarvestForm({ ...harvestForm, selling_price_per_unit: event.target.value })} required />
           </div>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder="Catatan" value={harvestForm.notes} onChange={(event) => setHarvestForm({ ...harvestForm, notes: event.target.value })} />
-          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !selectedRecordId || isAllRecordsSelected}>
-            {isSavingHarvest ? "Saving..." : "Save harvest"}
+          <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvest || !harvestRecordId}>
+            {isSavingHarvest ? "Menyimpan..." : "Simpan hasil tuaian"}
           </button>
           {harvestFormMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{harvestFormMessage}</p>}
         </form>
@@ -286,10 +292,21 @@ export function FinancePage({ token }: FinancePageProps) {
   );
 }
 
+
+function HarvestPlotSelect({ records, value, onChange }: { records: PlantingRecord[]; value: string; onChange: (value: string) => void }) {
+  return (
+    <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
+      <option value="">Pilih plot</option>
+      {records.map((record) => (
+        <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+      ))}
+    </select>
+  );
+}
 function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; value: string; onChange: (value: string) => void }) {
   return (
     <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
-      <option value="">Select plot</option>
+      <option value="">Pilih plot</option>
       <option value={ALL_RECORDS_VALUE}>Semua plot</option>
       {records.map((record) => (
         <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
