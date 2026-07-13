@@ -131,8 +131,8 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         </div>
         {chartSummary && (
           <div className="grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
-            <MiniSummary label="Tertinggi" value={formatPrice(chartSummary.highest)} />
-            <MiniSummary label="Terendah" value={formatPrice(chartSummary.lowest)} />
+            <MiniSummary label="Tertinggi / kg" value={formatMoney(chartSummary.highest)} />
+            <MiniSummary label="Terendah / kg" value={formatMoney(chartSummary.lowest)} />
             <MiniSummary label="Perubahan" value={formatSignedMoney(chartSummary.change)} tone={chartSummary.change > 0 ? "success" : chartSummary.change < 0 ? "danger" : "default"} />
             <MiniSummary label="Dikemas kini" value={formatShortDate(chartSummary.updatedAt)} />
           </div>
@@ -192,9 +192,13 @@ function MiniSummary({ label, value, tone = "default" }: { label: string; value:
   return (
     <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5">
       <p className="text-[11px] text-slate-500">{label}</p>
-      <p className={`mt-0.5 whitespace-nowrap text-xs font-semibold ${toneClass}`}>{value}</p>
+      <p className={`mt-0.5 whitespace-nowrap text-xs font-semibold leading-tight ${toneClass}`}>{value}</p>
     </div>
   );
+}
+
+function formatMoney(value: number) {
+  return `RM ${MONEY_FORMATTER.format(value)}`;
 }
 
 function formatSignedMoney(value: number) {
