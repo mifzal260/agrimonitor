@@ -77,27 +77,33 @@ export function DashboardPage({ token }: DashboardPageProps) {
         <SummaryCard label="Plots" value={summary.total_planting_records.toString()} />
         <SummaryCard label="High Risk" value={summary.high_risk_alerts.toString()} tone="warning" />
         <SummaryCard label="Latest Prices" value={summary.latest_market_prices.toString()} />
-        <SummaryCard label="Profit/Loss" value={`RM ${summary.profit_loss}`} tone={Number(summary.profit_loss) >= 0 ? "success" : "warning"} />
+        <SummaryCard label="Profit/Loss" value={formatMoney(summary.profit_loss)} tone={Number(summary.profit_loss) >= 0 ? "success" : "warning"} />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.4fr_0.8fr]">
+      <section className="grid items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(260px,3fr)]">
         <CommodityPriceTrend prices={marketPrices} />
 
-        <div className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-          <h2 className="text-lg font-semibold">Status Tanaman</h2>
-          <div className="mt-4 space-y-3">
-            {summary.crop_status.length === 0 ? <p className="text-sm text-slate-600">No planting records yet.</p> : summary.crop_status.map((item) => (
-              <div key={item.status} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-slate-700">{statusLabel(item.status)}</span>
-                <StatusBadge label={item.count.toString()} tone={statusTone(item.status)} />
-              </div>
-            ))}
+        <aside className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+          <div>
+            <h2 className="text-lg font-semibold">Status Tanaman</h2>
+            <p className="mt-1 text-sm text-slate-600">Ringkasan keadaan tanaman dan kewangan semasa.</p>
           </div>
-          <div className="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-700">
-            <p>Jumlah Kos: RM {summary.total_cost}</p>
-            <p>Jumlah Hasil: RM {summary.total_revenue}</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 lg:grid-cols-1 xl:grid-cols-2">
+            <StatusStat label="Jumlah tanaman" value={summary.total_planting_records.toString()} />
+            <StatusStat label="Sihat" value={healthyPlotCount.toString()} tone="success" />
+            <StatusStat label="Perlu perhatian" value={watchPlotCount.toString()} tone={watchPlotCount > 0 ? "warning" : "default"} />
+            <StatusStat label="Berisiko" value={riskPlotCount.toString()} tone={riskPlotCount > 0 ? "danger" : "default"} />
           </div>
-        </div>
+          <div className="mt-3 divide-y divide-slate-100 border-t border-slate-100 text-sm">
+            <FinanceStat label="Jumlah Kos" value={formatMoney(summary.total_cost)} />
+            <FinanceStat label="Jumlah Hasil" value={formatMoney(summary.total_revenue)} />
+            <FinanceStat
+              label={Number(summary.profit_loss) < 0 ? "Rugi" : "Untung"}
+              value={formatMoney(summary.profit_loss)}
+              tone={Number(summary.profit_loss) < 0 ? "danger" : "success"}
+            />
+          </div>
+        </aside>
       </section>
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -145,4 +151,35 @@ function SummaryCard({ label, value, tone = "info" }: { label: string; value: st
       <p className="mt-3 text-2xl font-bold text-slate-950">{value}</p>
     </article>
   );
+}
+function StatusStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "danger" }) {
+  const toneClass = {
+    default: "text-slate-950",
+    success: "text-emerald-700",
+    warning: "text-amber-700",
+    danger: "text-red-700",
+  }[tone];
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+      <p className="text-xs text-slate-600">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function FinanceStat({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "danger" }) {
+  const toneClass = tone === "success" ? "text-emerald-700" : tone === "danger" ? "text-red-700" : "text-slate-950";
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5">
+      <span className="text-slate-600">{label}</span>
+      <span className={`text-right font-semibold ${toneClass}`}>{value}</span>
+    </div>
+  );
+}
+
+function formatMoney(value: string | number) {
+  const amount = Number(value) || 0;
+  const formatted = new Intl.NumberFormat("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
+  return amount < 0 ? `-RM ${formatted}` : `RM ${formatted}`;
 }

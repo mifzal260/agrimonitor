@@ -25,6 +25,11 @@ const PRICE_LINES = [
   { key: "retail", label: "Harga Runcit", color: "#d97706" },
 ] as const;
 
+const MONEY_FORMATTER = new Intl.NumberFormat("en-MY", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
   const commodityOptions = useMemo(() => getCommodityOptions(prices), [prices]);
   const [selectedCommodity, setSelectedCommodity] = useState("");
@@ -53,7 +58,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
   );
 
   return (
-    <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <div>
         <h2 className="text-lg font-semibold">Trend Harga Komoditi</h2>
         <p className="mt-1 text-sm text-slate-600">Perbandingan harga ladang, borong dan runcit mengikut komoditi.</p>
@@ -86,24 +91,24 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         </label>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        {PRICE_LINES.map((line) => {
+      <div className={`mt-3 grid gap-2 sm:grid-cols-2 ${selectedPriceType === "all" ? "lg:grid-cols-3" : ""}`}>
+        {visibleLines.map((line) => {
           const summary = summaries[line.key];
-          const isUp = (summary?.changePercent ?? 0) > 0;
-          const isDown = (summary?.changePercent ?? 0) < 0;
+          const change = summary?.changePercent ?? 0;
+          const changeTone = change > 0 ? "text-emerald-700" : change < 0 ? "text-red-700" : "text-slate-500";
 
           return (
-            <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={line.key}>
+            <div className="flex min-h-24 flex-col justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5" key={line.key}>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: line.color }} />
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color }} />
                 <span>{line.label} terkini</span>
               </div>
-              <p className="mt-2 text-xl font-semibold text-slate-950">
-                {summary ? `RM${summary.price.toFixed(2)}/kg` : "Data belum tersedia"}
+              <p className="mt-1 whitespace-nowrap text-lg font-semibold text-slate-950">
+                {summary ? formatPrice(summary.price) : "Data belum tersedia"}
               </p>
               {summary && (
-                <p className={`mt-1 text-sm font-medium ${isUp ? "text-emerald-700" : isDown ? "text-amber-700" : "text-slate-500"}`}>
-                  {isUp ? "↑" : isDown ? "↓" : "→"} {Math.abs(summary.changePercent).toFixed(1)}% daripada rekod sebelumnya
+                <p className={`mt-0.5 whitespace-nowrap text-xs font-medium ${changeTone}`}>
+                  {change > 0 ? "↑" : change < 0 ? "↓" : "→"} {Math.abs(change).toFixed(1)}% berbanding sebelumnya
                 </p>
               )}
             </div>
@@ -111,8 +116,8 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700" aria-label="Petunjuk jenis harga">
-        {PRICE_LINES.map((line) => (
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700" aria-label="Petunjuk jenis harga">
+        {visibleLines.map((line) => (
           <div className="flex items-center gap-2" key={line.key}>
             <span className="h-0.5 w-6" style={{ backgroundColor: line.color }} />
             <span>{line.label}</span>
@@ -120,30 +125,31 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
         ))}
       </div>
 
-      <div className="mt-2 h-[380px] w-full">
+      <div className="mt-1 h-[330px] min-w-0 w-full sm:h-[340px]">
         {!selectedCommodity || !hasVisibleData ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-sm text-slate-600">
             Tiada rekod harga untuk komoditi ini.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 12, right: 8, bottom: 12, left: 4 }}>
+            <LineChart data={chartData} margin={{ top: 6, right: 6, bottom: 6, left: 8 }}>
               <XAxis
                 dataKey="date"
-                height={42}
+                height={38}
                 interval="preserveStartEnd"
-                minTickGap={48}
+                minTickGap={56}
                 tick={{ fontSize: 11 }}
                 tickFormatter={formatShortDate}
-                label={{ value: "Tarikh", position: "insideBottom", offset: -4 }}
+                label={{ value: "Tarikh", position: "insideBottom", offset: -2 }}
               />
               <YAxis
                 domain={yAxis.domain}
                 ticks={yAxis.ticks}
-                tickFormatter={(value) => `RM${value}`}
-                width={54}
+                tickFormatter={(value) => `RM ${formatAxisValue(Number(value))}`}
+                width={70}
                 tick={{ fontSize: 11 }}
-                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: 10 }}
+                tickMargin={8}
+                label={{ value: "Harga (RM/kg)", angle: -90, position: "insideLeft", offset: -1 }}
               />
               <Tooltip content={<PriceTooltip commodity={selectedCommodity} />} />
               {visibleLines.map((line) => (
@@ -155,7 +161,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
                   key={line.key}
                   name={line.label}
                   stroke={line.color}
-                  strokeWidth={2.5}
+                  strokeWidth={2.25}
                   type="monotone"
                 />
               ))}
@@ -172,17 +178,17 @@ function PriceTooltip({ active, payload, commodity }: { active?: boolean; payloa
   const date = payload[0].payload?.date ?? "";
 
   return (
-    <div className="min-w-48 rounded-md border border-slate-200 bg-white p-4 text-xs shadow-lg">
+    <div className="w-56 max-w-[calc(100vw-2rem)] rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg">
       <p className="text-sm font-semibold text-slate-950">{commodity}</p>
       <p className="mt-1 text-slate-600">{formatDisplayDate(date)}</p>
       <div className="mt-3 space-y-2">
         {payload.map((entry) => (
-          <div className="flex items-center justify-between gap-5 text-slate-700" key={String(entry.dataKey)}>
-            <span className="flex items-center gap-2 font-medium">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
-              {priceTypeLabel(String(entry.dataKey))}
+          <div className="flex items-center justify-between gap-3 text-slate-700" key={String(entry.dataKey)}>
+            <span className="flex min-w-0 items-center gap-2 font-medium">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
+              <span className="truncate">{priceTypeLabel(String(entry.dataKey))}</span>
             </span>
-            <span>RM {Number(entry.value ?? 0).toFixed(2)}/kg</span>
+            <span className="shrink-0">{formatPrice(Number(entry.value ?? 0))}</span>
           </div>
         ))}
       </div>
@@ -192,6 +198,14 @@ function PriceTooltip({ active, payload, commodity }: { active?: boolean; payloa
 
 function priceTypeLabel(priceType: string) {
   return ({ farm: "Harga Ladang", wholesale: "Harga Borong", retail: "Harga Runcit" } as Record<string, string>)[priceType] ?? priceType;
+}
+
+function formatPrice(value: number) {
+  return `RM ${MONEY_FORMATTER.format(value)} / kg`;
+}
+
+function formatAxisValue(value: number) {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
 }
 
 function formatShortDate(dateValue: string) {
@@ -222,8 +236,8 @@ function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
 
   const minimum = Math.min(...values);
   const maximum = Math.max(...values);
-  const spread = Math.max(maximum - minimum, Math.max(maximum * 0.1, 1));
-  const rawStep = spread / 4;
+  const spread = Math.max(maximum - minimum, Math.max(maximum * 0.08, 0.5));
+  const rawStep = spread / 5;
   const magnitude = 10 ** Math.floor(Math.log10(rawStep));
   const normalized = rawStep / magnitude;
   const niceStep = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
