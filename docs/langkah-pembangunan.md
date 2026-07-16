@@ -145,3 +145,18 @@ Status kerja:
 - Tiada schema database atau migrasi Alembic diubah.
 - Tiada frontend diubah.
 - `tmp-market-data/` tidak disentuh.
+## Catatan Audit Teknikal - Fasa 8.0 Backend Production Readiness
+
+Fasa 8.0 audit teknikal backend telah dilaksanakan selepas Fasa 7.0 dan direkodkan dalam `docs/audit-agrimonitor-fasa-8-0-backend-production-readiness.md`.
+
+Status kerja:
+
+- Konfigurasi production, CORS, secret, database URL dan startup database preparation diaudit serta diperketat melalui validation settings.
+- Logging, exception handler generik, rollback database session dan readiness endpoint ditambah.
+- Import CSV diperketat dengan semakan extension, content type, saiz fail, encoding UTF-8 dan had row.
+- Enum validation ditambah untuk input monitoring dan harga pasaran tanpa mengubah schema database.
+- Ujian ownership diperluas untuk activity, symptom record, cost dan harvest.
+- Formula kewangan dashboard vs finance summary diaudit tetapi tidak diubah kerana memerlukan keputusan produk.
+- Backend quality gate lulus: compileall, pytest 27 passed dan pip check.
+- Tiada frontend, schema database, migration, deployment, commit atau push dibuat.
+- `tmp-market-data/` tidak disentuh.
