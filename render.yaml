@@ -10,6 +10,8 @@ services:
         value: production
       - key: API_PREFIX
         value: /api/v1
+      - key: PREPARE_DATABASE_ON_STARTUP
+        value: false
       - key: DATABASE_URL
         sync: false
       - key: JWT_SECRET_KEY
@@ -32,4 +34,3 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-
