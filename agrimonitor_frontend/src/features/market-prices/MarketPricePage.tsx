@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createMarketPrice, importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
@@ -35,9 +35,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const weekOptions = useMemo(() => buildWeekOptions(allPrices.map((price) => price.recorded_date)), [allPrices]);
   const selectedWeekValue = filters.date_from && filters.date_to ? `${filters.date_from}|${filters.date_to}` : "";
   const priceSummary = useMemo(() => buildPriceSummary(allPrices), [allPrices]);
-  const commodityGroups = useMemo(() => buildCommodityPriceGroups(prices, allPrices), [prices]);
+  const commodityGroups = useMemo(() => buildCommodityPriceGroups(prices, allPrices), [allPrices, prices]);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setError("");
     setIsLoading(true);
     try {
@@ -49,9 +49,9 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [t, token]);
 
-  useEffect(() => { void loadData(); }, [token]);
+  useEffect(() => { void loadData(); }, [loadData]);
 
   async function applyFilters(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

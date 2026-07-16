@@ -8,17 +8,53 @@ import { StatusBadge } from "../../components/StatusBadge";
 import type { DashboardSummary } from "../../types/dashboard";
 import type { MarketPrice } from "../../types/marketPrice";
 import type { PlantingRecord, SymptomRecord } from "../../types/monitoring";
-import { formatCurrency, formatDateLong, formatPercent } from "../../utils/localeFormat";
+import { formatCurrency, formatDateLong, formatPercent, toCurrencyNumber } from "../../utils/localeFormat";
 import { CommodityPriceTrend } from "./CommodityPriceTrend";
 
 type DashboardPageProps = {
   token: string;
 };
 
+function normalizeStatus(status: string | null | undefined) {
+  return (status ?? "").trim().toLowerCase();
+}
+
+function toFiniteNumber(value: string | number | null | undefined) {
+  return toCurrencyNumber(value);
+}
+
 function statusTone(status: string): "success" | "warning" | "danger" {
-  if (status === "risk") return "danger";
-  if (status === "watch") return "warning";
+  const normalizedStatus = normalizeStatus(status);
+  if (normalizedStatus === "risk") return "danger";
+  if (normalizedStatus === "watch") return "warning";
   return "success";
+}
+
+function getStatusCount(summary: DashboardSummary, status: string) {
+  const normalizedStatus = normalizeStatus(status);
+  return summary.crop_status.reduce((total, item) => {
+    return normalizeStatus(item.status) === normalizedStatus ? total + item.count : total;
+  }, 0);
+}
+
+function isActiveSymptom(symptom: SymptomRecord) {
+  return normalizeStatus(symptom.status) !== "resolved";
+}
+
+function toSortableTimestamp(dateValue: string | null | undefined) {
+  if (!dateValue) return null;
+  const parsed = parseDateValue(dateValue).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function compareSymptomsByLatest(a: SymptomRecord, b: SymptomRecord) {
+  const timestampA = toSortableTimestamp(a.observed_at);
+  const timestampB = toSortableTimestamp(b.observed_at);
+
+  if (timestampA !== null && timestampB !== null && timestampA !== timestampB) return timestampB - timestampA;
+  if (timestampA !== null && timestampB === null) return -1;
+  if (timestampA === null && timestampB !== null) return 1;
+  return b.id - a.id;
 }
 
 export function DashboardPage({ token }: DashboardPageProps) {
@@ -44,22 +80,25 @@ export function DashboardPage({ token }: DashboardPageProps) {
 
   const plotMonitoring = useMemo(() => {
     return records.map((record) => {
-      const activeSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id === record.id && symptom.status !== "resolved");
+      const activeSymptoms = symptomRecords
+        .filter((symptom) => symptom.planting_record_id === record.id && isActiveSymptom(symptom))
+        .slice()
+        .sort(compareSymptomsByLatest);
       const latestActiveSymptom = activeSymptoms[0];
       return { record, activeSymptoms, latestActiveSymptom };
     });
   }, [records, symptomRecords]);
 
-  const healthyPlotCount = records.filter((record) => record.status === "healthy").length;
-  const watchPlotCount = records.filter((record) => record.status === "watch").length;
-  const riskPlotCount = records.filter((record) => record.status === "risk").length;
+  const healthyPlotCount = summary ? getStatusCount(summary, "healthy") : 0;
+  const watchPlotCount = summary ? getStatusCount(summary, "watch") : 0;
+  const riskPlotCount = summary ? getStatusCount(summary, "risk") : 0;
 
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">{t("common.loading")}...</p>;
   if (error) return <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>;
   if (!summary) return null;
 
-  const profitLossAmount = Number(summary.profit_loss) || 0;
-  const revenueAmount = Number(summary.total_revenue) || 0;
+  const profitLossAmount = toFiniteNumber(summary.profit_loss);
+  const revenueAmount = toFiniteNumber(summary.total_revenue);
   const profitMargin = revenueAmount > 0 ? (profitLossAmount / revenueAmount) * 100 : 0;
   const latestRecordDate = getLatestRecordDate(records, symptomRecords, marketPrices);
 
@@ -185,13 +224,20 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
     ...prices.map((price) => price.recorded_date),
   ].filter(Boolean);
 
-  dates.sort((a, b) => parseDateValue(a).getTime() - parseDateValue(b).getTime());
-  return dates.length > 0 ? dates[dates.length - 1] : "";
+  const validDates = dates
+    .map((date) => ({ date, timestamp: toSortableTimestamp(date) }))
+    .filter((item): item is { date: string; timestamp: number } => item.timestamp !== null)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  return validDates.length > 0 ? validDates[validDates.length - 1].date : "";
 }
 
 function parseDateValue(dateValue: string) {
   return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
 }
+
+
+
 
 
 

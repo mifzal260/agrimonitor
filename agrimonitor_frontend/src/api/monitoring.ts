@@ -1,23 +1,19 @@
 import { apiRequest } from "./client";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../types/monitoring";
 
-function authHeaders(token: string) {
-  return { Authorization: `Bearer ${token}` };
+export function listCrops(_token: string) {
+  return apiRequest<Crop[]>("/monitoring/crops");
 }
 
-export function listCrops(token: string) {
-  return apiRequest<Crop[]>("/monitoring/crops", { headers: authHeaders(token) });
+export function listSymptoms(_token: string) {
+  return apiRequest<Symptom[]>("/monitoring/symptoms");
 }
 
-export function listSymptoms(token: string) {
-  return apiRequest<Symptom[]>("/monitoring/symptoms", { headers: authHeaders(token) });
+export function listPlantingRecords(_token: string) {
+  return apiRequest<PlantingRecord[]>("/monitoring/planting-records");
 }
 
-export function listPlantingRecords(token: string) {
-  return apiRequest<PlantingRecord[]>("/monitoring/planting-records", { headers: authHeaders(token) });
-}
-
-export function createPlantingRecord(token: string, payload: {
+export function createPlantingRecord(_token: string, payload: {
   crop_id: number;
   field_name: string;
   planting_date: string;
@@ -27,13 +23,12 @@ export function createPlantingRecord(token: string, payload: {
 }) {
   return apiRequest<PlantingRecord>("/monitoring/planting-records", {
     method: "POST",
-    headers: authHeaders(token),
     body: JSON.stringify({ ...payload, area_size: payload.area_size || null, notes: payload.notes || null }),
   });
 }
 
 
-export function updatePlantingRecord(token: string, recordId: number, payload: {
+export function updatePlantingRecord(_token: string, recordId: number, payload: {
   crop_id?: number;
   field_name?: string;
   planting_date?: string;
@@ -43,22 +38,20 @@ export function updatePlantingRecord(token: string, recordId: number, payload: {
 }) {
   return apiRequest<PlantingRecord>(`/monitoring/planting-records/${recordId}`, {
     method: "PATCH",
-    headers: authHeaders(token),
     body: JSON.stringify({ ...payload, area_size: payload.area_size || null, notes: payload.notes || null }),
   });
 }
 
-export function deletePlantingRecord(token: string, recordId: number) {
+export function deletePlantingRecord(_token: string, recordId: number) {
   return apiRequest<null>(`/monitoring/planting-records/${recordId}`, {
     method: "DELETE",
-    headers: authHeaders(token),
   });
 }
-export function listActivities(token: string) {
-  return apiRequest<Activity[]>("/monitoring/activities", { headers: authHeaders(token) });
+export function listActivities(_token: string) {
+  return apiRequest<Activity[]>("/monitoring/activities");
 }
 
-export function createActivity(token: string, payload: {
+export function createActivity(_token: string, payload: {
   planting_record_id: number;
   activity_type: string;
   activity_date: string;
@@ -68,7 +61,6 @@ export function createActivity(token: string, payload: {
 }) {
   return apiRequest<Activity>("/monitoring/activities", {
     method: "POST",
-    headers: authHeaders(token),
     body: JSON.stringify({
       ...payload,
       description: payload.description || null,
@@ -79,7 +71,7 @@ export function createActivity(token: string, payload: {
 }
 
 
-export function updateActivity(token: string, activityId: number, payload: {
+export function updateActivity(_token: string, activityId: number, payload: {
   activity_type?: string;
   activity_date?: string;
   description?: string;
@@ -88,7 +80,6 @@ export function updateActivity(token: string, activityId: number, payload: {
 }) {
   return apiRequest<Activity>(`/monitoring/activities/${activityId}`, {
     method: "PATCH",
-    headers: authHeaders(token),
     body: JSON.stringify({
       ...payload,
       description: payload.description || null,
@@ -98,17 +89,16 @@ export function updateActivity(token: string, activityId: number, payload: {
   });
 }
 
-export function deleteActivity(token: string, activityId: number) {
+export function deleteActivity(_token: string, activityId: number) {
   return apiRequest<null>(`/monitoring/activities/${activityId}`, {
     method: "DELETE",
-    headers: authHeaders(token),
   });
 }
-export function listSymptomRecords(token: string) {
-  return apiRequest<SymptomRecord[]>("/monitoring/symptom-records", { headers: authHeaders(token) });
+export function listSymptomRecords(_token: string) {
+  return apiRequest<SymptomRecord[]>("/monitoring/symptom-records");
 }
 
-export function createSymptomRecord(token: string, payload: {
+export function createSymptomRecord(_token: string, payload: {
   planting_record_id: number;
   symptom_id: number;
   severity: string;
@@ -118,7 +108,6 @@ export function createSymptomRecord(token: string, payload: {
 }) {
   return apiRequest<SymptomRecord>("/monitoring/symptom-records", {
     method: "POST",
-    headers: authHeaders(token),
     body: JSON.stringify({
       ...payload,
       notes: payload.notes || null,
@@ -127,7 +116,7 @@ export function createSymptomRecord(token: string, payload: {
     }),
   });
 }
-export function updateSymptomRecord(token: string, symptomRecordId: number, payload: {
+export function updateSymptomRecord(_token: string, symptomRecordId: number, payload: {
   severity?: string;
   notes?: string;
   image_url?: string;
@@ -137,15 +126,14 @@ export function updateSymptomRecord(token: string, symptomRecordId: number, payl
 }) {
   return apiRequest<SymptomRecord>(`/monitoring/symptom-records/${symptomRecordId}`, {
     method: "PATCH",
-    headers: authHeaders(token),
     body: JSON.stringify({ ...payload, notes: payload.notes || null, image_url: payload.image_url || null }),
   });
 }
 
-export function deleteSymptomRecord(token: string, symptomRecordId: number) {
+export function deleteSymptomRecord(_token: string, symptomRecordId: number) {
   return apiRequest<null>(`/monitoring/symptom-records/${symptomRecordId}`, {
     method: "DELETE",
-    headers: authHeaders(token),
   });
 }
+
 

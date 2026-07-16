@@ -15,7 +15,7 @@ export function CommodityPriceAccordionList({ groups, selectedPriceType }: Commo
   const [openCommodity, setOpenCommodity] = useState<string | null>(null);
 
   useEffect(() => {
-    if (openCommodity && !groups.some((group) => group.commodityName === openCommodity)) {
+    if (openCommodity && !groups.some((group) => group.groupKey === openCommodity)) {
       setOpenCommodity(null);
     }
   }, [groups, openCommodity]);
@@ -39,10 +39,10 @@ export function CommodityPriceAccordionList({ groups, selectedPriceType }: Commo
           {groups.map((group) => (
             <CommodityPriceAccordion
               group={group}
-              isOpen={openCommodity === group.commodityName}
-              key={group.commodityName}
+              isOpen={openCommodity === group.groupKey}
+              key={group.groupKey}
               selectedPriceType={selectedPriceType}
-              onToggle={() => setOpenCommodity((current) => current === group.commodityName ? null : group.commodityName)}
+              onToggle={() => setOpenCommodity((current) => current === group.groupKey ? null : group.groupKey)}
             />
           ))}
         </div>

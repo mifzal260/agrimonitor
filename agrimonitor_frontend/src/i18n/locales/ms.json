@@ -20,7 +20,12 @@
     "info": "Info",
     "good": "Baik",
     "attention": "Perhatian",
-    "notAvailable": "Tidak tersedia"
+    "notAvailable": "Tidak tersedia",
+    "confirm": "Sahkan",
+    "deleting": "Memadam...",
+    "showMore": "Lihat lagi",
+    "showLess": "Tutup semula",
+    "showingCount": "Memaparkan {{shown}} daripada {{total}} rekod"
   },
   "navigation": {
     "summary": "Ringkasan",

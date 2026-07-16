@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { MarketPrice } from "../../types/marketPrice";
-import { formatCurrency, formatDateLong, formatDateShort, formatPercent, formatPricePerKg } from "../../utils/localeFormat";
+import { formatCurrency, formatDateLong, formatDateShort, formatPercent, formatPricePerUnit } from "../../utils/localeFormat";
 import {
   buildCommodityPriceChartData,
   getCommodityOptions,
@@ -34,12 +34,13 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
   const [selectedPriceType, setSelectedPriceType] = useState<PriceTypeFilter>("all");
 
   useEffect(() => {
-    if (!selectedCommodity || !commodityOptions.includes(selectedCommodity)) {
+    if (!selectedCommodity || !commodityOptions.some((option) => option.key === selectedCommodity)) {
       setSelectedCommodity(getDefaultCommodity(prices));
     }
   }, [commodityOptions, prices, selectedCommodity]);
 
   const chartData = useMemo(() => buildCommodityPriceChartData(prices, selectedCommodity), [prices, selectedCommodity]);
+  const selectedCommodityLabel = commodityOptions.find((option) => option.key === selectedCommodity)?.label ?? selectedCommodity;
   const visibleLines = selectedPriceType === "all" ? PRICE_LINES : PRICE_LINES.filter((line) => line.key === selectedPriceType);
   const visibleLineKeys = visibleLines.map((line) => line.key);
   const hasVisibleData = chartData.some((row) => visibleLines.some((line) => row[line.key] !== null));
@@ -59,7 +60,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
           <span>{t("dashboard.selectCommodity")}</span>
           <select className="w-full rounded-md border border-slate-300 bg-white px-3 py-2" value={selectedCommodity} onChange={(event) => setSelectedCommodity(event.target.value)}>
             {commodityOptions.length === 0 && <option value="">{t("emptyState.noCommodityPrices")}</option>}
-            {commodityOptions.map((commodity) => <option key={commodity} value={commodity}>{commodity}</option>)}
+            {commodityOptions.map((commodity) => <option key={commodity.key} value={commodity.key}>{commodity.label}</option>)}
           </select>
         </label>
         <label className="space-y-1 text-sm font-medium text-slate-700">
@@ -85,7 +86,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.color }} />
                 <span className="min-w-0 truncate">{t(line.labelKey)} {t("marketPrice.date").toLowerCase() === "date" ? "latest" : "terkini"}</span>
               </div>
-              <p className="mt-1 break-words text-lg font-semibold leading-tight text-slate-950">{summary ? formatPricePerKg(summary.price) : t("marketPrice.dataNotAvailable")}</p>
+              <p className="mt-1 break-words text-lg font-semibold leading-tight text-slate-950">{summary ? formatPricePerUnit(summary.price, summary.unit) : t("marketPrice.dataNotAvailable")}</p>
               {summary && <p className={`mt-0.5 text-xs font-medium leading-tight ${changeTone}`} title={`${arrow} ${formatPercent(Math.abs(change))}% ${t("dashboard.periodChange").toLowerCase()}`}>{arrow} {formatPercent(Math.abs(change))}%</p>}
             </div>
           );
@@ -119,7 +120,7 @@ export function CommodityPriceTrend({ prices }: { prices: MarketPrice[] }) {
             <LineChart data={chartData} margin={{ top: 4, right: 6, bottom: 4, left: 14 }}>
               <XAxis dataKey="date" height={34} interval="preserveStartEnd" minTickGap={56} tick={{ fontSize: 11 }} tickFormatter={formatDateShort} label={{ value: t("dashboard.dateAxis"), position: "insideBottom", offset: -1 }} />
               <YAxis domain={yAxis.domain} ticks={yAxis.ticks} tickFormatter={(value) => `RM ${formatAxisValue(Number(value))}`} width={78} tick={{ fontSize: 11 }} tickMargin={10} label={{ value: t("dashboard.priceAxis"), angle: -90, position: "insideLeft", offset: -8 }} />
-              <Tooltip content={<PriceTooltip commodity={selectedCommodity} />} />
+              <Tooltip content={<PriceTooltip commodity={selectedCommodityLabel} />} />
               {visibleLines.map((line) => (
                 <Line connectNulls={false} dataKey={line.key} dot={false} activeDot={{ r: 5, strokeWidth: 2, fill: "#ffffff" }} key={line.key} name={t(line.labelKey)} stroke={line.color} strokeWidth={2.25} type="monotone" />
               ))}
@@ -167,12 +168,22 @@ function PriceTooltip({ active, payload, commodity }: { active?: boolean; payloa
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
               <span className="truncate">{priceTypeLabel(String(entry.dataKey), t)}</span>
             </span>
-            <span className="shrink-0">{formatPricePerKg(Number(entry.value ?? 0))}</span>
+            <span className="shrink-0">{formatPricePerUnit(Number(entry.value ?? 0), getEntryUnit(entry))}</span>
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function getEntryUnit(entry: TooltipEntry) {
+  const key = String(entry.dataKey) as PriceKey;
+  return getRowUnit(entry.payload, key);
+}
+
+function getRowUnit(row: CommodityPriceChartRow | undefined, key: PriceKey) {
+  if (!row) return null;
+  return ({ farm: row.farmUnit, wholesale: row.wholesaleUnit, retail: row.retailUnit } as Record<PriceKey, string | null>)[key];
 }
 
 function priceTypeLabel(priceType: string, t: (key: string) => string) {
@@ -185,15 +196,14 @@ function formatAxisValue(value: number) {
 
 function buildLatestSummaries(rows: CommodityPriceChartRow[]) {
   return Object.fromEntries(PRICE_LINES.map((line) => {
-    const values = rows.flatMap((row) => row[line.key] === null ? [] : [row[line.key] as number]);
-    if (values.length === 0) return [line.key, null];
-    const price = values[values.length - 1];
-    const previous = values.length > 1 ? values[values.length - 2] : undefined;
-    const changePercent = previous && previous !== 0 ? ((price - previous) / previous) * 100 : 0;
-    return [line.key, { price, changePercent }];
-  })) as Record<PriceKey, { price: number; changePercent: number } | null>;
+    const points = rows.flatMap((row) => row[line.key] === null ? [] : [{ price: row[line.key] as number, unit: getRowUnit(row, line.key) }]);
+    if (points.length === 0) return [line.key, null];
+    const latest = points[points.length - 1];
+    const previous = points.length > 1 ? points[points.length - 2].price : undefined;
+    const changePercent = previous && previous !== 0 ? ((latest.price - previous) / previous) * 100 : 0;
+    return [line.key, { price: latest.price, changePercent, unit: latest.unit }];
+  })) as Record<PriceKey, { price: number; changePercent: number; unit: string | null } | null>;
 }
-
 function buildYAxis(rows: CommodityPriceChartRow[], keys: PriceKey[]) {
   const values = rows.flatMap((row) => keys.flatMap((key) => row[key] === null ? [] : [row[key] as number]));
   if (values.length === 0) return { domain: [0, 10] as [number, number], ticks: [0, 2, 4, 6, 8, 10] };

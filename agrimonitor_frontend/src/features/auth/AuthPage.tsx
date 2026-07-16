@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { login, register } from "../../api/auth";
+import { clearToken } from "../../auth/authStorage";
 import type { AuthResponse } from "../../types/auth";
 
 type AuthView = "login" | "register";
@@ -21,6 +22,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    clearToken();
     setError("");
     setIsLoading(true);
 
@@ -31,6 +33,7 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
           : await login({ email, password });
       onAuthenticated(response);
     } catch (err) {
+      clearToken();
       setError(err instanceof Error ? err.message : t("auth.authenticationFailed"));
     } finally {
       setIsLoading(false);
@@ -106,3 +109,6 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
     </main>
   );
 }
+
+
+

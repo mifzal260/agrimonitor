@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { ListDisplayControls } from "../../components/common/ListDisplayControls";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
 import type { Alert, RecommendationResult } from "../../types/recommendation";
+import { formatCurrency, formatDateShort, toCurrencyNumber } from "../../utils/localeFormat";
+import { getVisibleListItems, INITIAL_VISIBLE_LIST_COUNT } from "../../utils/listDisplay";
 
 type MonitoringPageProps = { token: string };
+type DeleteRequest = { type: "planting" | "activity" | "symptom"; id: number; message: string };
 
 function normalizeDecimalInput(value: string) {
   return value.trim().replace(",", ".");
@@ -40,12 +45,11 @@ function symptomActionText(severity: string, t: (key: string) => string) {
   return t("cropMonitoring.symptomActionLow");
 }
 function toCurrency(value: string | null) {
-  const amount = Number(value ?? 0);
-  return `RM ${amount.toFixed(2)}`;
+  return formatCurrency(value);
 }
 
 function getActivityTotalCost(activity: Activity) {
-  return Number(activity.cost_amount ?? 0) + Number(activity.labor_cost_amount ?? 0);
+  return toCurrencyNumber(activity.cost_amount) + toCurrencyNumber(activity.labor_cost_amount);
 }
 
 function totalActivityCost(activities: Activity[]) {
@@ -75,6 +79,8 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [successMessage, setSuccessMessage] = useState("");
   const [activitySaveMessage, setActivitySaveMessage] = useState("");
   const [symptomSaveMessage, setSymptomSaveMessage] = useState("");
+  const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
@@ -83,7 +89,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const hasRecords = records.length > 0;
   const latestRecord = useMemo(() => records[0], [records]);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setError("");
     setIsLoading(true);
     try {
@@ -101,9 +107,9 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [t, token]);
 
-  useEffect(() => { void loadData(); }, [token]);
+  useEffect(() => { void loadData(); }, [loadData]);
 
 
   async function refreshPlantingRecords() {
@@ -165,19 +171,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   }
 
   async function handleDeletePlantingRecord(recordId: number) {
-    const confirmed = window.confirm(t("notifications.confirmDeletePlanting"));
-    if (!confirmed) return;
-    setError("");
-    setSuccessMessage("");
-    try {
-      await deletePlantingRecord(token, recordId);
-      setRecords((currentRecords) => currentRecords.filter((record) => record.id !== recordId));
-      setActivities((currentActivities) => currentActivities.filter((activity) => activity.planting_record_id !== recordId));
-      setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.planting_record_id !== recordId));
-      setSuccessMessage(t("notifications.plantingDeleted"));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("notifications.deleteFailed"));
-    }
+    setDeleteRequest({ type: "planting", id: recordId, message: t("notifications.confirmDeletePlanting") });
   }
   async function submitActivity(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -208,18 +202,8 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     }
   }
 
-  async function handleDeleteActivity(activityId: number) {
-    const confirmed = window.confirm(t("notifications.confirmDeleteActivity"));
-    if (!confirmed) return;
-    setError("");
-    setSuccessMessage("");
-    try {
-      await deleteActivity(token, activityId);
-      setActivities((currentActivities) => currentActivities.filter((activity) => activity.id !== activityId));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("notifications.deleteFailed"));
-      throw err;
-    }
+  function handleDeleteActivity(activityId: number) {
+    setDeleteRequest({ type: "activity", id: activityId, message: t("notifications.confirmDeleteActivity") });
   }
 
   async function submitSymptom(event: React.FormEvent<HTMLFormElement>) {
@@ -280,20 +264,44 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     }
   }
 
-  async function handleDeleteSymptomRecord(symptomRecordId: number) {
-    const confirmed = window.confirm(t("notifications.confirmDeleteSymptom"));
-    if (!confirmed) return;
+  function handleDeleteSymptomRecord(symptomRecordId: number) {
+    setDeleteRequest({ type: "symptom", id: symptomRecordId, message: t("notifications.confirmDeleteSymptom") });
+  }
+  async function confirmDeleteRequest() {
+    if (!deleteRequest) return;
+
     setError("");
     setSuccessMessage("");
+    setActivitySaveMessage("");
+    setSymptomSaveMessage("");
+    setIsDeleting(true);
     try {
-      await deleteSymptomRecord(token, symptomRecordId);
-      setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== symptomRecordId));
-      await refreshPlantingRecords();
+      if (deleteRequest.type === "planting") {
+        await deletePlantingRecord(token, deleteRequest.id);
+        setRecords((currentRecords) => currentRecords.filter((record) => record.id !== deleteRequest.id));
+        setActivities((currentActivities) => currentActivities.filter((activity) => activity.planting_record_id !== deleteRequest.id));
+        setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.planting_record_id !== deleteRequest.id));
+        setSuccessMessage(t("notifications.plantingDeleted"));
+      }
+      if (deleteRequest.type === "activity") {
+        await deleteActivity(token, deleteRequest.id);
+        setActivities((currentActivities) => currentActivities.filter((activity) => activity.id !== deleteRequest.id));
+        setSuccessMessage(t("notifications.activityDeleted"));
+      }
+      if (deleteRequest.type === "symptom") {
+        await deleteSymptomRecord(token, deleteRequest.id);
+        setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== deleteRequest.id));
+        await refreshPlantingRecords();
+        setSuccessMessage(t("notifications.symptomDeleted"));
+      }
+      setDeleteRequest(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.deleteFailed"));
-      throw err;
+    } finally {
+      setIsDeleting(false);
     }
   }
+
   async function evaluate(recordId: number) {
     setError("");
     setIsEvaluating(true);
@@ -312,6 +320,17 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
   return (
     <div className="space-y-5">
+      <ConfirmDialog
+        cancelLabel={t("common.cancel")}
+        confirmLabel={isDeleting ? t("common.deleting") : t("common.delete")}
+        isLoading={isDeleting}
+        isOpen={deleteRequest !== null}
+        message={deleteRequest?.message ?? ""}
+        title={t("common.confirm")}
+        variant="danger"
+        onCancel={() => { if (!isDeleting) setDeleteRequest(null); }}
+        onConfirm={confirmDeleteRequest}
+      />
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {successMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{successMessage}</p>}
 
@@ -537,7 +556,7 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, sav
   );
 }
 
-function ActivitySummary({ records, activities, onUpdate, onDelete }: { records: PlantingRecord[]; activities: Activity[]; onUpdate: (activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }) => Promise<void>; onDelete: (activityId: number) => Promise<void> }) {
+function ActivitySummary({ records, activities, onUpdate, onDelete }: { records: PlantingRecord[]; activities: Activity[]; onUpdate: (activityId: number, form: { activity_type: string; activity_date: string; description: string; cost_amount: string; labor_cost_amount: string }) => Promise<void>; onDelete: (activityId: number) => void }) {
   const { t } = useTranslation();
   const totalCost = totalActivityCost(activities);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -550,7 +569,13 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
   const selectedRecord = records.find((record) => record.id.toString() === selectedRecordId);
   const selectedActivities = activities.filter((activity) => activity.planting_record_id.toString() === selectedRecordId);
   const selectedCost = totalActivityCost(selectedActivities);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(INITIAL_VISIBLE_LIST_COUNT);
+  const visibleActivities = getVisibleListItems(selectedActivities, visibleActivityCount);
   const recordsWithActivities = records.filter((record) => activities.some((activity) => activity.planting_record_id === record.id));
+
+  useEffect(() => {
+    setVisibleActivityCount(INITIAL_VISIBLE_LIST_COUNT);
+  }, [selectedRecordId]);
 
   function startEdit(activity: Activity) {
     setStatusMessage("");
@@ -611,7 +636,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
             <p className="mt-3 text-sm text-slate-600">{t("cropMonitoring.noActivitiesForPlot")}</p>
           ) : (
             <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
-              {selectedActivities.slice(0, 8).map((activity) => (
+              {visibleActivities.map((activity) => (
                 <li key={activity.id} className="py-3">
                   {editingId === activity.id ? (
                     <form onSubmit={submitEdit} className="space-y-2 rounded-md bg-field-50 p-3">
@@ -629,7 +654,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                     </form>
                   ) : (
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0"><p className="truncate">{activity.activity_date} - {activity.activity_type}</p>{activity.description && <p className="mt-1 truncate text-xs text-slate-500">{activity.description}</p>}</div>
+                      <div className="min-w-0"><p className="truncate">{formatDateShort(activity.activity_date)} - {activity.activity_type}</p>{activity.description && <p className="mt-1 truncate text-xs text-slate-500">{activity.description}</p>}</div>
                       <div className="relative flex shrink-0 items-center gap-2 text-right">
                         <div className="text-right text-xs text-slate-500">
                           <p>{t("cropMonitoring.material")}: {toCurrency(activity.cost_amount ?? "0")}</p>
@@ -647,7 +672,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
                         {openMenuId === activity.id && (
                           <div className="absolute right-0 top-8 z-20 w-36 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
                             <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(activity)}>{t("cropMonitoring.editActivity")}</button>
-                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onDelete(activity.id); setStatusMessage(t("notifications.activityDeleted")); } catch { /* error banner is handled by parent */ } }}>{t("common.delete")}</button>
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); setStatusMessage(""); onDelete(activity.id); }}>{t("common.delete")}</button>
                           </div>
                         )}
                       </div>
@@ -657,13 +682,14 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
               ))}
             </ul>
           )}
+          <ListDisplayControls totalItems={selectedActivities.length} visibleCount={visibleActivityCount} onVisibleCountChange={setVisibleActivityCount} />
         </>
       )}
       <p className="mt-3 border-t border-slate-100 pt-3 text-sm font-semibold text-slate-950">{t("cropMonitoring.totalAllActivityCost")}: {toCurrency(String(totalCost))}</p>
     </div>
   );
 }
-function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[]; onUpdate: (symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) => Promise<void>; onResolve: (symptomRecordId: number) => Promise<void>; onDelete: (symptomRecordId: number) => Promise<void> }) {
+function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[]; onUpdate: (symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) => Promise<void>; onResolve: (symptomRecordId: number) => Promise<void>; onDelete: (symptomRecordId: number) => void }) {
   const { t } = useTranslation();
   const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id))?.id.toString() ?? "");
   const [statusFilter, setStatusFilter] = useState<"active" | "resolved">("active");
@@ -678,8 +704,14 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
   const activeSymptoms = symptomRecords.filter((symptom) => symptom.status !== "resolved");
   const resolvedSymptoms = symptomRecords.filter((symptom) => symptom.status === "resolved");
   const selectedSymptoms = symptomRecords.filter((symptom) => symptom.planting_record_id.toString() === selectedRecordId && (statusFilter === "resolved" ? symptom.status === "resolved" : symptom.status !== "resolved"));
+  const [visibleSymptomCount, setVisibleSymptomCount] = useState(INITIAL_VISIBLE_LIST_COUNT);
+  const visibleSymptoms = getVisibleListItems(selectedSymptoms, visibleSymptomCount);
   const highCount = activeSymptoms.filter((symptom) => symptom.severity === "high").length;
   const mediumCount = activeSymptoms.filter((symptom) => symptom.severity === "medium").length;
+
+  useEffect(() => {
+    setVisibleSymptomCount(INITIAL_VISIBLE_LIST_COUNT);
+  }, [selectedRecordId, statusFilter]);
 
   useEffect(() => {
     if (!selectedRecordId && recordsWithSymptoms.length > 0) setSelectedRecordId(recordsWithSymptoms[0].id.toString());
@@ -761,7 +793,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
             <p className="mt-3 text-sm text-slate-600">Tiada rekod {statusFilter === "active" ? t("cropMonitoring.active") : t("cropMonitoring.resolved")} untuk plot ini.</p>
           ) : (
             <ul className="mt-3 divide-y divide-slate-100 text-sm text-slate-700">
-              {selectedSymptoms.slice(0, 8).map((record) => (
+              {visibleSymptoms.map((record) => (
                 <li key={record.id} className="py-3">
                   {editingId === record.id ? (
                     <form onSubmit={submitEdit} className="space-y-2 rounded-md bg-field-50 p-3">
@@ -788,7 +820,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                           <p className="font-medium text-slate-950">{record.symptom.name}</p>
                           <StatusBadge label={record.status === "resolved" ? t("cropMonitoring.resolved") : record.status === "monitoring" ? t("cropMonitoring.monitoring") : t("cropMonitoring.active")} tone={record.status === "resolved" ? "success" : "warning"} />
                         </div>
-                        <p className="mt-1 text-xs text-slate-500">{new Date(record.observed_at).toLocaleDateString()} - {record.status === "resolved" ? `${t("cropMonitoring.resolvedOn")} ${record.resolved_at ? new Date(record.resolved_at).toLocaleDateString() : t("cropMonitoring.dateNotRecorded")}` : symptomActionText(record.severity, t)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{formatDateShort(record.observed_at)} - {record.status === "resolved" ? `${t("cropMonitoring.resolvedOn")} ${record.resolved_at ? formatDateShort(record.resolved_at) : t("cropMonitoring.dateNotRecorded")}` : symptomActionText(record.severity, t)}</p>
                         {record.notes && <p className="mt-1 text-xs text-slate-500">{t("cropMonitoring.notes")}: {record.notes}</p>}
                       </div>
                       <div className="relative flex shrink-0 items-center gap-2">
@@ -798,7 +830,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                           <div className="absolute right-0 top-8 z-20 w-44 rounded-lg border border-slate-100 bg-white p-1 text-left shadow-lg">
                             {record.status !== "resolved" && <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onResolve(record.id); setStatusMessage(t("notifications.symptomResolved")); } catch { /* error banner is handled by parent */ } }}>{t("cropMonitoring.markResolved")}</button>}
                             <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-slate-700 hover:bg-field-50" type="button" onClick={() => startEdit(record)}>{t("cropMonitoring.editRecord")}</button>
-                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={async () => { setOpenMenuId(null); setStatusMessage(""); try { await onDelete(record.id); setStatusMessage(t("notifications.symptomDeleted")); } catch { /* error banner is handled by parent */ } }}>{t("common.delete")}</button>
+                            <button className="flex h-9 w-full items-center rounded-md px-3 text-sm font-medium text-red-700 hover:bg-red-50" type="button" onClick={() => { setOpenMenuId(null); setStatusMessage(""); onDelete(record.id); }}>{t("common.delete")}</button>
                           </div>
                         )}
                       </div>
@@ -808,11 +840,26 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
               ))}
             </ul>
           )}
+          <ListDisplayControls totalItems={selectedSymptoms.length} visibleCount={visibleSymptomCount} onVisibleCountChange={setVisibleSymptomCount} />
         </>
       )}
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

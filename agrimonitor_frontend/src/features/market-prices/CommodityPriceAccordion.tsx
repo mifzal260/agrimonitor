@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { StatusBadge } from "../../components/StatusBadge";
-import { formatCurrency, formatDateShort } from "../../utils/localeFormat";
+import { formatCurrency, formatDateShort, formatPricePerUnit } from "../../utils/localeFormat";
 import {
   calculateLevelDifference,
   selectPrimaryPrice,
@@ -26,7 +26,7 @@ const PRICE_LEVELS: Array<{ key: PriceLevel; labelKey: string }> = [
 export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onToggle }: CommodityPriceAccordionProps) {
   const { t } = useTranslation();
   const primary = selectPrimaryPrice(group, selectedPriceType);
-  const panelId = "commodity-price-" + slugify(group.commodityName);
+  const panelId = "commodity-price-" + slugify(group.groupKey);
   const articleClass = "overflow-hidden rounded-lg border bg-white shadow-sm transition-colors " + (isOpen ? "border-field-700" : "border-field-100");
   const panelClass = "grid transition-[grid-template-rows,opacity] duration-300 ease-in-out " + (isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0");
 
@@ -41,11 +41,11 @@ export function CommodityPriceAccordion({ group, isOpen, selectedPriceType, onTo
       >
         <div className="min-w-0 flex-1">
           <h3 className="break-words font-semibold text-slate-950">{group.commodityName}</h3>
+          <p className="mt-1 text-xs font-medium text-slate-500">{group.locationLabel}</p>
           {primary ? (
             <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-2">
               <p className="text-2xl font-bold text-slate-950">
-                {formatCurrency(primary.current.price)}
-                <span className="ml-1 text-sm font-medium text-slate-600">/ {primary.current.unit}</span>
+                {formatPricePerUnit(primary.current.price, primary.current.unit)}
               </p>
               <StatusBadge label={trendSymbol(primary.trend) + " " + trendLabel(primary.trend, t)} tone={trendTone(primary.trend)} />
               <p className="w-full text-xs text-slate-500">
@@ -89,8 +89,7 @@ function PriceLevelPanel({ highlight, label }: { highlight: PriceHighlight | nul
       ) : (
         <>
           <p className="mt-3 text-xl font-bold text-slate-950">
-            {formatCurrency(highlight.current.price)}
-            <span className="ml-1 text-xs font-medium text-slate-600">/ {highlight.current.unit}</span>
+            {formatPricePerUnit(highlight.current.price, highlight.current.unit)}
           </p>
           <p className={"mt-2 text-sm font-semibold " + trendTextClass(highlight.trend)}>
             {trendSymbol(highlight.trend)} {formatChange(highlight, t)}
@@ -179,7 +178,7 @@ function HistoryPriceCell({ highlight }: { highlight: PriceHighlight | null }) {
 
   return (
     <td className="whitespace-nowrap px-3 py-2 text-right">
-      <p className="font-semibold text-slate-950">{formatCurrency(highlight.current.price)}</p>
+      <p className="font-semibold text-slate-950">{formatPricePerUnit(highlight.current.price, highlight.current.unit)}</p>
       <p className={"text-xs " + trendTextClass(highlight.trend)}>
         {highlight.changeAmount === null ? t("marketPrice.noComparison") : trendSymbol(highlight.trend) + " " + formatCurrency(highlight.changeAmount, { signed: true })}
       </p>

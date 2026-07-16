@@ -20,7 +20,12 @@
     "info": "Info",
     "good": "Good",
     "attention": "Attention",
-    "notAvailable": "Not available"
+    "notAvailable": "Not available",
+    "confirm": "Confirm",
+    "deleting": "Deleting...",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "showingCount": "Showing {{shown}} of {{total}} records"
   },
   "navigation": {
     "summary": "Summary",

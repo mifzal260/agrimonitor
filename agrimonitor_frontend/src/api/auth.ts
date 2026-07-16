@@ -26,10 +26,6 @@ export function login(payload: LoginPayload) {
   });
 }
 
-export function getMe(token: string) {
-  return apiRequest<User>("/auth/me", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+export function getMe() {
+  return apiRequest<User>("/auth/me");
 }

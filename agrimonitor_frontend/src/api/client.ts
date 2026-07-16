@@ -1,8 +1,18 @@
-const defaultApiBaseUrl = window.location.hostname.includes("onrender.com")
-  ? "https://agrimonitor-backend.onrender.com/api/v1"
-  : "http://localhost:8000/api/v1";
+import { clearToken, getToken, notifySessionExpired } from "../auth/authStorage";
+import { buildApiUrl } from "../config/api";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? defaultApiBaseUrl;
+let hasHandledUnauthorized = false;
+
+function handleUnauthorized() {
+  if (hasHandledUnauthorized) return;
+  hasHandledUnauthorized = true;
+  clearToken();
+  notifySessionExpired();
+}
+
+export function resetUnauthorizedHandler() {
+  hasHandledUnauthorized = false;
+}
 
 function formatApiError(errorBody: unknown) {
   if (!errorBody || typeof errorBody !== "object") return "Request failed";
@@ -27,17 +37,24 @@ function formatApiError(errorBody: unknown) {
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  const token = getToken();
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await fetch(buildApiUrl(path), {
     ...options,
     headers,
   });
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
+    if (response.status === 401) handleUnauthorized();
     throw new Error(formatApiError(errorBody));
   }
 

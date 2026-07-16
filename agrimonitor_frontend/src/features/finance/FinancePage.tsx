@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createHarvest, deleteHarvest, listHarvests, updateHarvest } from "../../api/finance";
 import { listActivities, listPlantingRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
+import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { ListDisplayControls } from "../../components/common/ListDisplayControls";
 import type { Harvest } from "../../types/finance";
 import type { Activity, PlantingRecord } from "../../types/monitoring";
-import { formatCurrency as formatLocaleCurrency } from "../../utils/localeFormat";
+import { formatCurrency as formatLocaleCurrency, formatDateShort, toCurrencyNumber } from "../../utils/localeFormat";
+import { getVisibleListItems, INITIAL_VISIBLE_LIST_COUNT } from "../../utils/listDisplay";
 
 type FinancePageProps = { token: string };
 type HarvestFormState = { harvest_date: string; quantity: string; unit: string; selling_price_per_unit: string; notes: string };
@@ -29,10 +32,14 @@ export function FinancePage({ token }: FinancePageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingHarvest, setIsSavingHarvest] = useState(false);
   const [isSavingHarvestEdit, setIsSavingHarvestEdit] = useState(false);
+  const [deleteHarvestId, setDeleteHarvestId] = useState<number | null>(null);
+  const [isDeletingHarvest, setIsDeletingHarvest] = useState(false);
+  const [visibleActivityCount, setVisibleActivityCount] = useState(INITIAL_VISIBLE_LIST_COUNT);
+  const [visibleHarvestCount, setVisibleHarvestCount] = useState(INITIAL_VISIBLE_LIST_COUNT);
   const [harvestForm, setHarvestForm] = useState<HarvestFormState>(emptyHarvestForm);
   const [editHarvestForm, setEditHarvestForm] = useState<HarvestFormState>(emptyHarvestForm);
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setError("");
     setIsLoading(true);
     try {
@@ -51,11 +58,11 @@ export function FinancePage({ token }: FinancePageProps) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [t, token]);
 
   useEffect(() => {
     void loadData();
-  }, [token]);
+  }, [loadData]);
 
   const isAllRecordsSelected = selectedRecordId === ALL_RECORDS_VALUE;
   const selectedRecord = isAllRecordsSelected ? null : records.find((record) => String(record.id) === selectedRecordId) ?? null;
@@ -72,6 +79,13 @@ export function FinancePage({ token }: FinancePageProps) {
   const totalCost = selectedActivities.reduce((total, activity) => total + getActivityTotalCost(activity), 0);
   const totalRevenue = selectedHarvests.reduce((total, harvest) => total + toNumber(harvest.revenue), 0);
   const profitLoss = totalRevenue - totalCost;
+  const visibleActivities = getVisibleListItems(selectedActivities, visibleActivityCount);
+  const visibleHarvests = getVisibleListItems(selectedHarvests, visibleHarvestCount);
+
+  useEffect(() => {
+    setVisibleActivityCount(INITIAL_VISIBLE_LIST_COUNT);
+    setVisibleHarvestCount(INITIAL_VISIBLE_LIST_COUNT);
+  }, [selectedRecordId]);
 
   function resetInlineHarvestEdit() {
     setEditingHarvestId(null);
@@ -138,21 +152,28 @@ export function FinancePage({ token }: FinancePageProps) {
     }
   }
 
-  async function removeHarvest(harvestId: number) {
-    const shouldDelete = window.confirm(t("notifications.confirmDeleteHarvest"));
-    if (!shouldDelete) return;
+  function removeHarvest(harvestId: number) {
+    setDeleteHarvestId(harvestId);
+    setOpenHarvestMenuId(null);
+  }
+
+  async function confirmRemoveHarvest() {
+    if (!deleteHarvestId) return;
 
     setError("");
     setHarvestFormMessage("");
     setHarvestListMessage("");
-    setOpenHarvestMenuId(null);
+    setIsDeletingHarvest(true);
     try {
-      await deleteHarvest(token, harvestId);
-      setHarvests((currentHarvests) => currentHarvests.filter((harvest) => harvest.id !== harvestId));
-      if (editingHarvestId === harvestId) resetInlineHarvestEdit();
+      await deleteHarvest(token, deleteHarvestId);
+      setHarvests((currentHarvests) => currentHarvests.filter((harvest) => harvest.id !== deleteHarvestId));
+      if (editingHarvestId === deleteHarvestId) resetInlineHarvestEdit();
       setHarvestListMessage(t("notifications.harvestDeleted"));
+      setDeleteHarvestId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.deleteFailed"));
+    } finally {
+      setIsDeletingHarvest(false);
     }
   }
 
@@ -160,6 +181,17 @@ export function FinancePage({ token }: FinancePageProps) {
 
   return (
     <div className="space-y-5">
+      <ConfirmDialog
+        cancelLabel={t("common.cancel")}
+        confirmLabel={isDeletingHarvest ? t("common.deleting") : t("common.delete")}
+        isLoading={isDeletingHarvest}
+        isOpen={deleteHarvestId !== null}
+        message={t("notifications.confirmDeleteHarvest")}
+        title={t("common.confirm")}
+        variant="danger"
+        onCancel={() => { if (!isDeletingHarvest) setDeleteHarvestId(null); }}
+        onConfirm={confirmRemoveHarvest}
+      />
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       <section className="rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -196,22 +228,23 @@ export function FinancePage({ token }: FinancePageProps) {
             <p className="mt-4 text-sm text-slate-600">{isAllRecordsSelected ? t("finance.noActivitiesForAllPlots") : t("finance.noActivitiesForPlot")}</p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100 text-sm">
-              {selectedActivities.slice(0, 8).map((activity) => (
+              {visibleActivities.map((activity) => (
                 <li key={activity.id} className="flex items-center justify-between gap-3 py-3">
                   <span>
-                    <span className="font-medium text-slate-900">{activity.activity_date} - {activity.activity_type}</span>
+                    <span className="font-medium text-slate-900">{formatDateShort(activity.activity_date)} - {activity.activity_type}</span>
                     {isAllRecordsSelected && <span className="block text-xs text-slate-500">{records.find((record) => record.id === activity.planting_record_id)?.field_name ?? "Plot"}</span>}
                     {activity.description && <span className="block text-xs text-slate-500">{activity.description}</span>}
                   </span>
                   <span className="shrink-0 text-right text-xs text-slate-500">
-                    <span className="block">{t("finance.material")}: {formatCurrency(toNumber(activity.cost_amount))}</span>
-                    <span className="block">{t("finance.labor")}: {formatCurrency(toNumber(activity.labor_cost_amount))}</span>
+                    <span className="block">{t("finance.material")}: {formatCurrency(activity.cost_amount)}</span>
+                    <span className="block">{t("finance.labor")}: {formatCurrency(activity.labor_cost_amount)}</span>
                     <span className="mt-1 block text-sm font-semibold text-slate-950">{t("finance.total")}: {formatCurrency(getActivityTotalCost(activity))}</span>
                   </span>
                 </li>
               ))}
             </ul>
           )}
+          <ListDisplayControls totalItems={selectedActivities.length} visibleCount={visibleActivityCount} onVisibleCountChange={setVisibleActivityCount} />
         </section>
 
         <form onSubmit={submitHarvest} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -248,8 +281,9 @@ export function FinancePage({ token }: FinancePageProps) {
         {selectedHarvests.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">{isAllRecordsSelected ? t("finance.noHarvestForAllPlots") : t("finance.noHarvestForPlot")}</p>
         ) : (
+          <>
           <ul className="mt-3 divide-y divide-slate-100 text-sm">
-            {selectedHarvests.slice(0, 8).map((harvest) => (
+            {visibleHarvests.map((harvest) => (
               <li key={harvest.id} className="relative py-3">
                 {editingHarvestId === harvest.id ? (
                   <form onSubmit={submitHarvestEdit} className="space-y-2 rounded-md bg-field-50 p-3">
@@ -261,19 +295,19 @@ export function FinancePage({ token }: FinancePageProps) {
                     </div>
                     <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("finance.notes")} value={editHarvestForm.notes} onChange={(event) => setEditHarvestForm({ ...editHarvestForm, notes: event.target.value })} />
                     <div className="flex gap-2">
-                      <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvestEdit}>{isSavingHarvestEdit ? "Menyimpan..." : "Simpan"}</button>
-                      <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={resetInlineHarvestEdit}>Batal</button>
+                      <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingHarvestEdit}>{isSavingHarvestEdit ? t("finance.saving") : t("common.save")}</button>
+                      <button className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700" type="button" onClick={resetInlineHarvestEdit}>{t("common.cancel")}</button>
                     </div>
                   </form>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
                     <span>
-                      <span className="font-medium text-slate-900">{harvest.harvest_date} - {harvest.quantity} {harvest.unit}</span>
+                      <span className="font-medium text-slate-900">{formatDateShort(harvest.harvest_date)} - {harvest.quantity} {harvest.unit}</span>
                       {isAllRecordsSelected && <span className="block text-xs text-slate-500">{records.find((record) => record.id === harvest.planting_record_id)?.field_name ?? "Plot"}</span>}
-                      <span className="block text-xs text-slate-500">{t("finance.pricePerUnit")}: {formatCurrency(toNumber(harvest.selling_price_per_unit))}</span>
+                      <span className="block text-xs text-slate-500">{t("finance.pricePerUnit")}: {formatCurrency(harvest.selling_price_per_unit)}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-3">
-                      <span className="font-semibold text-slate-950">{formatCurrency(toNumber(harvest.revenue))}</span>
+                      <span className="font-semibold text-slate-950">{formatCurrency(harvest.revenue)}</span>
                       <button className="neo-icon-button px-2 py-1 text-slate-500" type="button" onClick={() => setOpenHarvestMenuId(openHarvestMenuId === harvest.id ? null : harvest.id)} aria-label="Menu hasil tuaian">
                         ...
                       </button>
@@ -281,7 +315,7 @@ export function FinancePage({ token }: FinancePageProps) {
                     {openHarvestMenuId === harvest.id && (
                       <div className="absolute right-0 top-10 z-20 w-36 rounded-lg border border-slate-100 bg-white p-2 text-sm shadow-lg">
                         <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-slate-700 hover:bg-slate-50" type="button" onClick={() => startEditHarvest(harvest)}>{t("common.edit")}</button>
-                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => void removeHarvest(harvest.id)}>{t("common.delete")}</button>
+                        <button className="block w-full rounded-md px-3 py-2 text-left font-semibold text-red-600 hover:bg-red-50" type="button" onClick={() => removeHarvest(harvest.id)}>{t("common.delete")}</button>
                       </div>
                     )}
                   </div>
@@ -289,6 +323,8 @@ export function FinancePage({ token }: FinancePageProps) {
               </li>
             ))}
           </ul>
+          <ListDisplayControls totalItems={selectedHarvests.length} visibleCount={visibleHarvestCount} onVisibleCountChange={setVisibleHarvestCount} />
+          </>
         )}
       </section>
     </div>
@@ -329,13 +365,24 @@ function getActivityTotalCost(activity: Activity) {
 }
 
 function toNumber(value: string | null | undefined) {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return toCurrencyNumber(value);
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(value: string | number | null | undefined) {
   return formatLocaleCurrency(value);
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

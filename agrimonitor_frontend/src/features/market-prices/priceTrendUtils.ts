@@ -1,4 +1,12 @@
 import type { MarketPrice } from "../../types/marketPrice";
+import { toFiniteNumber } from "../../utils/localeFormat";
+import {
+  commodityLocationKey,
+  commodityLocationLabel,
+  compareMarketPriceRecords,
+  marketLocationLabel,
+  priceSeriesKey,
+} from "../../utils/marketPriceData";
 
 export type CalculatedTrend = "up" | "down" | "stable" | "unavailable";
 
@@ -25,7 +33,10 @@ export type CommodityPriceHistoryRow = {
 };
 
 export type CommodityPriceGroup = {
+  groupKey: string;
   commodityName: string;
+  locationLabel: string;
+  displayName: string;
   levels: Record<PriceLevel, PriceHighlight | null>;
   latestDate: string;
   history: CommodityPriceHistoryRow[];
@@ -38,7 +49,7 @@ export function buildPriceSummary(records: MarketPrice[], limit = 6): PriceSumma
   const rankedComparable = [...comparable].sort(compareHighlights);
   const rankedFallback = latest
     .filter((item) => item.changeAmount === null)
-    .sort((left, right) => compareDates(right.current, left.current));
+    .sort((left, right) => compareMarketPriceRecords(right.current, left.current));
   const highlights = [...rankedComparable, ...rankedFallback].slice(0, limit);
   const latestDate = latest.reduce<string | null>(
     (currentLatest, item) => !currentLatest || item.current.recorded_date > currentLatest ? item.current.recorded_date : currentLatest,
@@ -47,7 +58,7 @@ export function buildPriceSummary(records: MarketPrice[], limit = 6): PriceSumma
 
   return {
     highlights,
-    updatedCommodityCount: new Set(latest.map((item) => item.current.commodity_name)).size,
+    updatedCommodityCount: new Set(latest.map((item) => commodityLocationKey(item.current))).size,
     latestDate,
     stats: {
       up: comparable.filter((item) => item.trend === "up").length,
@@ -67,35 +78,38 @@ export function buildCommodityPriceGroups(
     const previous = findPreviousRecord(current, historicalSeries.get(key) ?? []);
     return createPriceHighlight(current, previous);
   });
-  const commodities = new Map<string, CommodityPriceGroup>();
+  const groups = new Map<string, CommodityPriceGroup>();
 
   seriesHighlights.forEach((highlight) => {
     if (!isPriceLevel(highlight.current.price_type)) return;
 
-    const key = normalizeCommodityName(highlight.current.commodity_name);
-    const group = commodities.get(key) ?? {
+    const key = commodityLocationKey(highlight.current);
+    const group = groups.get(key) ?? {
+      groupKey: key,
       commodityName: highlight.current.commodity_name,
+      locationLabel: marketLocationLabel(highlight.current),
+      displayName: commodityLocationLabel(highlight.current),
       levels: { farm: null, wholesale: null, retail: null },
       latestDate: highlight.current.recorded_date,
       history: [],
     };
     const existingLevel = group.levels[highlight.current.price_type];
 
-    if (!existingLevel || compareDates(highlight.current, existingLevel.current) > 0) {
+    if (!existingLevel || compareMarketPriceRecords(highlight.current, existingLevel.current) > 0) {
       group.levels[highlight.current.price_type] = highlight;
     }
-    if (highlight.current.recorded_date > group.latestDate) {
+    if (compareMarketPriceRecords(highlight.current, { ...highlight.current, recorded_date: group.latestDate, id: 0 }) > 0) {
       group.latestDate = highlight.current.recorded_date;
     }
-    commodities.set(key, group);
+    groups.set(key, group);
   });
 
-  commodities.forEach((group) => {
+  groups.forEach((group) => {
     group.history = buildCommodityHistory(group, historyRecords, historicalSeries);
   });
 
-  return Array.from(commodities.values()).sort((left, right) =>
-    left.commodityName.localeCompare(right.commodityName, "ms"),
+  return Array.from(groups.values()).sort((left, right) =>
+    left.displayName.localeCompare(right.displayName, "ms"),
   );
 }
 
@@ -112,9 +126,9 @@ export function calculateLevelDifference(
 ): { amount: number; percent: number | null } | null {
   if (!from || !to) return null;
 
-  const fromPrice = Number(from.current.price);
-  const toPrice = Number(to.current.price);
-  if (!Number.isFinite(fromPrice) || !Number.isFinite(toPrice)) return null;
+  const fromPrice = toFiniteNumber(from.current.price);
+  const toPrice = toFiniteNumber(to.current.price);
+  if (fromPrice === null || toPrice === null) return null;
 
   const amount = toPrice - fromPrice;
   return {
@@ -132,7 +146,7 @@ function buildCommodityHistory(
 
   historyRecords
     .filter((record) =>
-      normalizeCommodityName(record.commodity_name) === normalizeCommodityName(group.commodityName)
+      commodityLocationKey(record) === group.groupKey
       && record.recorded_date < group.latestDate
       && isPriceLevel(record.price_type),
     )
@@ -144,7 +158,7 @@ function buildCommodityHistory(
         levels: { farm: null, wholesale: null, retail: null },
       };
       const existing = row.levels[record.price_type];
-      if (!existing || record.id > existing.current.id) {
+      if (!existing || compareMarketPriceRecords(record, existing.current) > 0) {
         const previous = findPreviousRecord(record, historicalSeries.get(priceSeriesKey(record)) ?? []);
         row.levels[record.price_type] = createPriceHighlight(record, previous);
       }
@@ -162,18 +176,8 @@ function groupByPriceSeries(records: MarketPrice[]) {
     group.push(record);
     grouped.set(key, group);
   });
-  grouped.forEach((group) => group.sort((left, right) => compareDates(right, left)));
+  grouped.forEach((group) => group.sort((left, right) => compareMarketPriceRecords(right, left)));
   return grouped;
-}
-
-function priceSeriesKey(record: MarketPrice) {
-  return [record.commodity_name, record.price_type, record.location]
-    .map((value) => value.trim().toLocaleLowerCase())
-    .join("|");
-}
-
-function normalizeCommodityName(value: string) {
-  return value.trim().toLocaleLowerCase();
 }
 
 function findPreviousRecord(current: MarketPrice, records: MarketPrice[]) {
@@ -188,9 +192,9 @@ function toPriceHighlight(records: MarketPrice[]): PriceHighlight {
 function createPriceHighlight(current: MarketPrice, previous: MarketPrice | null): PriceHighlight {
   if (!previous) return { current, previous, changeAmount: null, changePercent: null, trend: "unavailable" };
 
-  const currentPrice = Number(current.price);
-  const previousPrice = Number(previous.price);
-  if (!Number.isFinite(currentPrice) || !Number.isFinite(previousPrice)) {
+  const currentPrice = toFiniteNumber(current.price);
+  const previousPrice = toFiniteNumber(previous.price);
+  if (currentPrice === null || previousPrice === null) {
     return { current, previous, changeAmount: null, changePercent: null, trend: "unavailable" };
   }
 
@@ -201,13 +205,11 @@ function createPriceHighlight(current: MarketPrice, previous: MarketPrice | null
 }
 
 function compareHighlights(left: PriceHighlight, right: PriceHighlight) {
-  return Math.abs(right.changeAmount ?? 0) - Math.abs(left.changeAmount ?? 0) || compareDates(right.current, left.current);
-}
-
-function compareDates(left: MarketPrice, right: MarketPrice) {
-  return left.recorded_date.localeCompare(right.recorded_date) || left.id - right.id;
+  return Math.abs(right.changeAmount ?? 0) - Math.abs(left.changeAmount ?? 0) || compareMarketPriceRecords(right.current, left.current);
 }
 
 function isPriceLevel(value: string): value is PriceLevel {
   return value === "farm" || value === "wholesale" || value === "retail";
 }
+
+
