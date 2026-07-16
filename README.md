@@ -118,3 +118,24 @@ A starter `render.yaml` is included at the project root.
 - Set `JWT_SECRET_KEY` through environment variables.
 - Set `DATABASE_URL` through environment variables.
 - Set `CORS_ORIGINS` to the deployed frontend URL in production.
+---
+
+## Nota Penutupan Audit Frontend Fasa 6.1
+
+Pada 16 Julai 2026, quality gate frontend telah dijalankan semula:
+
+- `npm ci` lulus dengan 0 vulnerabilities dan warning `recharts@2.15.4` deprecated.
+- `npm run test` lulus: 10 fail ujian, 79 ujian.
+- `npm run lint` lulus.
+- `npx tsc --noEmit` lulus.
+- `npm run build` lulus: Vite 8.1.4, built in 5.64s, chunk terbesar `DashboardPage` 388.03 kB, tiada chunk warning.
+- `npm audit` lulus dengan 0 vulnerabilities.
+
+Manual regression browser/backend/database penuh belum dilakukan. Playwright/E2E belum tersedia.
+
+Hutang teknikal diterima:
+
+- `recharts@2.15.4` deprecated; migrasi ke v3 perlu fasa berasingan.
+- `skipLibCheck=true` dikekalkan kerana declaration dependency pihak ketiga Recharts/lodash gagal apabila diperiksa dengan `skipLibCheck=false`.
+
+Fasa seterusnya: **Fasa 7.0 - Audit dan Pengukuhan Backend**. Fasa 7.0 ini bukan Fasa 7 MVP asal; Fasa 7 MVP asal ialah modul harga pasaran.

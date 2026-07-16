@@ -114,3 +114,22 @@ Hasil yang perlu ada:
 - Improve UI.
 - Update README.
 - Add Render + Neon deployment notes.
+
+---
+
+## Fasa 7.0: Audit dan Pengukuhan Backend
+
+Fasa ini ialah fasa audit backend baharu selepas penutupan Audit Frontend Fasa 6.1. Ia bukan Fasa 7 dalam pelan MVP asal kerana Fasa 7 asal ialah Market Price Module.
+
+Skop awal Fasa 7.0:
+
+- Bina infrastruktur ujian backend dengan pytest, database test berasingan, fixture app, fixture session, rollback/reset data, dan dependency override FastAPI.
+- Uji autentikasi, JWT, role admin/user dan endpoint `/auth/me`.
+- Uji pemilikan data dengan sekurang-kurangnya dua pengguna.
+- Uji kiraan kewangan: kos bahan, kos buruh, kos aktiviti, hasil jualan, untung/rugi, satu plot dan semua plot.
+- Uji import CSV termasuk header hilang, tarikh rosak, harga rosak, rekod pendua, akses bukan admin dan rollback apabila gagal.
+- Audit transaksi database: commit, flush, refresh, rollback, operasi berbilang langkah dan risiko partial write.
+- Muktamadkan strategi `/finance/costs`: kekal, gabung dengan kos aktiviti, atau deprecate.
+- Rancang E2E Playwright selepas backend stabil.
+
+Nota: ujian backend pada masa ini hampir tiada. Playwright/E2E belum tersedia. Jangan mula implementasi Fasa 7.0 sebelum skop disahkan.
