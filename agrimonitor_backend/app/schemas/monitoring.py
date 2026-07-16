@@ -3,6 +3,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field
 
+from app.core.enums import PlantingStatus, SymptomRecordStatus, SymptomSeverity
+
 
 class CropRead(BaseModel):
     id: int
@@ -27,7 +29,7 @@ class PlantingRecordBase(BaseModel):
     field_name: str = Field(min_length=2, max_length=120)
     planting_date: date
     area_size: Decimal | None = Field(default=None, ge=0)
-    status: str = Field(default="healthy", max_length=30)
+    status: PlantingStatus = "healthy"
     notes: str | None = None
 
 
@@ -40,7 +42,7 @@ class PlantingRecordUpdate(BaseModel):
     field_name: str | None = Field(default=None, min_length=2, max_length=120)
     planting_date: date | None = None
     area_size: Decimal | None = Field(default=None, ge=0)
-    status: str | None = Field(default=None, max_length=30)
+    status: PlantingStatus | None = None
     notes: str | None = None
 
 
@@ -84,11 +86,11 @@ class ActivityRead(ActivityBase):
 class SymptomRecordBase(BaseModel):
     planting_record_id: int
     symptom_id: int
-    severity: str = Field(max_length=20)
+    severity: SymptomSeverity
     notes: str | None = None
     image_url: str | None = Field(default=None, max_length=500)
     observed_at: datetime
-    status: str = Field(default="active", max_length=20)
+    status: SymptomRecordStatus = "active"
     resolved_at: datetime | None = None
 
 
@@ -97,11 +99,11 @@ class SymptomRecordCreate(SymptomRecordBase):
 
 
 class SymptomRecordUpdate(BaseModel):
-    severity: str | None = Field(default=None, max_length=20)
+    severity: SymptomSeverity | None = None
     notes: str | None = None
     image_url: str | None = Field(default=None, max_length=500)
     observed_at: datetime | None = None
-    status: str | None = Field(default=None, max_length=20)
+    status: SymptomRecordStatus | None = None
     resolved_at: datetime | None = None
 
 
@@ -111,5 +113,3 @@ class SymptomRecordRead(SymptomRecordBase):
     symptom: SymptomRead
 
     model_config = {"from_attributes": True}
-
-

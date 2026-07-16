@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, require_admin
+from app.core.enums import PriceType
 from app.db.database import get_db
 from app.models.market_price import MarketPrice
 from app.models.user import User
@@ -17,7 +18,7 @@ router = APIRouter()
 def read_market_prices(
     commodity_name: str | None = None,
     location: str | None = None,
-    price_type: str | None = None,
+    price_type: PriceType | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
