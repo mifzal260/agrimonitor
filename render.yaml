@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET_KEY
         sync: false
       - key: CORS_ORIGINS
-        sync: false
+        value: https://agrimonitor-frontend.onrender.com
 
   - type: web
     name: agrimonitor-frontend
