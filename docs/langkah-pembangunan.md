@@ -133,3 +133,15 @@ Skop awal Fasa 7.0:
 - Rancang E2E Playwright selepas backend stabil.
 
 Nota: ujian backend pada masa ini hampir tiada. Playwright/E2E belum tersedia. Jangan mula implementasi Fasa 7.0 sebelum skop disahkan.
+
+## Catatan Audit Teknikal - Fasa 7.0 Backend
+
+Fasa 7.0 audit teknikal backend telah dimulakan selepas penutupan audit frontend Fasa 6.1. Skop fasa ini bukan modul harga pasaran MVP asal, tetapi audit dan pengukuhan backend FastAPI.
+
+Status kerja:
+
+- Audit route, auth, ownership, kewangan, CSV, transaksi, validation dan konfigurasi backend direkodkan dalam `docs/audit-agrimonitor-fasa-7-0-backend.md`.
+- Suite ujian backend minimum ditambah untuk health, auth dan ownership planting record.
+- Tiada schema database atau migrasi Alembic diubah.
+- Tiada frontend diubah.
+- `tmp-market-data/` tidak disentuh.
