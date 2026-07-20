@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { login, register } from "../../api/auth";
+import { ApiError } from "../../api/client";
 import { clearToken } from "../../auth/authStorage";
 import type { AuthResponse } from "../../types/auth";
 
@@ -34,7 +35,17 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
       onAuthenticated(response);
     } catch (err) {
       clearToken();
-      setError(err instanceof Error ? err.message : t("auth.authenticationFailed"));
+      if (err instanceof ApiError && err.status === 429) {
+        setError(
+          err.retryAfterSeconds
+            ? t("auth.tooManyAttemptsWithRetry", { seconds: err.retryAfterSeconds })
+            : t("auth.tooManyAttempts"),
+        );
+      } else if (view === "login" && err instanceof ApiError && err.status === 401) {
+        setError(t("auth.invalidCredentials"));
+      } else {
+        setError(err instanceof Error ? err.message : t("auth.authenticationFailed"));
+      }
     } finally {
       setIsLoading(false);
     }

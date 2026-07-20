@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 from app.core.config import settings
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+DUMMY_PASSWORD_HASH = "$2b$12$7EqJtq98hPqEX7fNZaFWoOhi9L89XxI6zJFwFAt8xVbXzQl42H9Xi"
 
 
 def hash_password(password: str) -> str:

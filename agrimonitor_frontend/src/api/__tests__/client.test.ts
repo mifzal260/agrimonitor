@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clearToken, getToken, setToken } from "../../auth/authStorage";
-import { apiRequest, resetUnauthorizedHandler } from "../client";
+import { ApiError, apiRequest, resetUnauthorizedHandler } from "../client";
 
-function mockFetch(status: number, body: unknown = { detail: "Request failed" }) {
+function mockFetch(status: number, body: unknown = { detail: "Request failed" }, headers = new Headers()) {
   globalThis.fetch = vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
+    headers,
     json: vi.fn().mockResolvedValue(body),
   } as unknown as Response);
 }
@@ -53,6 +54,16 @@ describe("api client 401 handling", () => {
     expect(getToken()).toBe("still-valid");
     expect(listener).not.toHaveBeenCalled();
     window.removeEventListener("agrimonitor:session-expired", listener);
+  });
+
+  it("exposes Retry-After for 429 responses", async () => {
+    const headers = new Headers({ "Retry-After": "60" });
+    mockFetch(429, { detail: "Too many attempts" }, headers);
+
+    await expect(apiRequest("/auth/login")).rejects.toMatchObject({
+      status: 429,
+      retryAfterSeconds: 60,
+    } satisfies Partial<ApiError>);
   });
 
   it("can handle 401 again after reset", async () => {

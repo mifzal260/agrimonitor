@@ -65,7 +65,10 @@
     "needAccount": "Need an account? Register",
     "alreadyRegistered": "Already registered? Login",
     "intro": "Access your farm monitoring workspace. The first registered account becomes the system administrator.",
-    "authenticationFailed": "Authentication failed"
+    "authenticationFailed": "Authentication failed",
+    "invalidCredentials": "Invalid username or password.",
+    "tooManyAttempts": "Too many login attempts. Please try again later.",
+    "tooManyAttemptsWithRetry": "Too many login attempts. Please try again in {{seconds}} seconds."
   },
   "dashboard": {
     "title": "Dashboard",

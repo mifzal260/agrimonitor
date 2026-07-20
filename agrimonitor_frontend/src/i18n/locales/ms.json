@@ -65,7 +65,10 @@
     "needAccount": "Perlukan akaun? Daftar",
     "alreadyRegistered": "Sudah berdaftar? Log masuk",
     "intro": "Akses ruang kerja pemantauan ladang anda. Akaun pertama yang didaftarkan akan menjadi pentadbir sistem.",
-    "authenticationFailed": "Pengesahan gagal"
+    "authenticationFailed": "Pengesahan gagal",
+    "invalidCredentials": "Nama pengguna atau kata laluan tidak sah.",
+    "tooManyAttempts": "Terlalu banyak percubaan log masuk. Sila cuba sebentar lagi.",
+    "tooManyAttemptsWithRetry": "Terlalu banyak percubaan log masuk. Sila cuba semula dalam {{seconds}} saat."
   },
   "dashboard": {
     "title": "Papan Pemuka",
