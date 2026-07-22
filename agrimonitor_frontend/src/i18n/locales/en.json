@@ -68,7 +68,8 @@
     "authenticationFailed": "Authentication failed",
     "invalidCredentials": "Invalid username or password.",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
-    "tooManyAttemptsWithRetry": "Too many login attempts. Please try again in {{seconds}} seconds."
+    "tooManyAttemptsWithRetry": "Too many login attempts. Please try again in {{seconds}} seconds.",
+    "loginServiceUnavailable": "The login service is temporarily unavailable. Please try again."
   },
   "dashboard": {
     "title": "Dashboard",

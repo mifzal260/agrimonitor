@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.security import DUMMY_PASSWORD_HASH, create_access_token, hash_password, verify_password
 from app.models.user import User
 from app.schemas.auth import TokenResponse, UserCreate, UserLogin
-from app.services.login_protection import LoginAttemptContext, login_rate_limiter
+from app.services.login_protection import LoginAttemptContext, LoginProtectionService
 
 
 def register_user(db: Session, payload: UserCreate) -> TokenResponse:
@@ -29,7 +29,12 @@ def register_user(db: Session, payload: UserCreate) -> TokenResponse:
     return TokenResponse(access_token=token, user=user)
 
 
-def authenticate_user(db: Session, payload: UserLogin, context: LoginAttemptContext) -> TokenResponse:
+def authenticate_user(
+    db: Session,
+    payload: UserLogin,
+    context: LoginAttemptContext,
+    login_protection: LoginProtectionService,
+) -> TokenResponse:
     normalized_email = payload.email.lower()
     user = db.scalar(select(User).where(User.email == normalized_email))
     password_hash = user.password_hash if user is not None else DUMMY_PASSWORD_HASH
@@ -37,9 +42,9 @@ def authenticate_user(db: Session, payload: UserLogin, context: LoginAttemptCont
 
     if user is None or not password_valid:
         reason = "unknown_user" if user is None else "invalid_password"
-        login_rate_limiter.record_failure(context, reason=reason)
+        login_protection.record_failure(context, reason=reason)
 
     assert user is not None
-    login_rate_limiter.record_success(context)
+    login_protection.record_success(context)
     token = create_access_token(subject=str(user.id), role=user.role)
     return TokenResponse(access_token=token, user=user)

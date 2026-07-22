@@ -68,7 +68,8 @@
     "authenticationFailed": "Pengesahan gagal",
     "invalidCredentials": "Nama pengguna atau kata laluan tidak sah.",
     "tooManyAttempts": "Terlalu banyak percubaan log masuk. Sila cuba sebentar lagi.",
-    "tooManyAttemptsWithRetry": "Terlalu banyak percubaan log masuk. Sila cuba semula dalam {{seconds}} saat."
+    "tooManyAttemptsWithRetry": "Terlalu banyak percubaan log masuk. Sila cuba semula dalam {{seconds}} saat.",
+    "loginServiceUnavailable": "Perkhidmatan log masuk tidak tersedia buat sementara waktu. Sila cuba lagi."
   },
   "dashboard": {
     "title": "Papan Pemuka",

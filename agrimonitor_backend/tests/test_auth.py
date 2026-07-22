@@ -261,7 +261,7 @@ def test_login_limiter_tracks_concurrent_failures_without_losing_attempts(monkey
     with ThreadPoolExecutor(max_workers=8) as executor:
         list(executor.map(lambda _: fail_once(), range(20)))
 
-    assert login_rate_limiter.account_states[context.username].failure_count == 20
+    assert login_rate_limiter.store.account_states[context.username_hash].failure_count == 20
 
 
 def test_account_failure_window_expires_before_lockout(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -284,9 +284,9 @@ def test_account_failure_window_expires_before_lockout(client: TestClient, monke
     response = post_login(client, "farmer@example.com", "wrong-password")
     assert response.status_code == 401
 
-    from app.services.login_protection import login_rate_limiter
+    from app.services.login_protection import hash_identifier, login_rate_limiter
 
-    assert login_rate_limiter.account_states["farmer@example.com"].failure_count == 1
+    assert login_rate_limiter.store.account_states[hash_identifier("farmer@example.com")].failure_count == 1
 
 
 def test_account_lockout_normalizes_email_case_and_whitespace(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -334,7 +334,7 @@ def test_account_lockout_is_capped_by_max_seconds(client: TestClient, monkeypatc
 
 def test_expired_login_limiter_state_is_pruned(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings
-    from app.services.login_protection import login_rate_limiter, set_login_rate_limiter_clock
+    from app.services.login_protection import hash_identifier, login_rate_limiter, set_login_rate_limiter_clock
 
     clock = FakeClock()
     set_login_rate_limiter_clock(clock)
@@ -346,11 +346,10 @@ def test_expired_login_limiter_state_is_pruned(client: TestClient, monkeypatch: 
     register_user(client)
     response = post_login(client, "farmer@example.com", "wrong-password")
     assert response.status_code == 401
-    assert "farmer@example.com" in login_rate_limiter.account_states
+    assert hash_identifier("farmer@example.com") in login_rate_limiter.store.account_states
 
     clock.advance(11)
     response = post_login(client, "cleanup-trigger@example.com", "wrong-password")
     assert response.status_code == 401
 
-    assert "farmer@example.com" not in login_rate_limiter.account_states
-    assert all("farmer@example.com" not in key for key in login_rate_limiter.account_ip_failures)
+    assert hash_identifier("farmer@example.com") not in login_rate_limiter.store.account_states

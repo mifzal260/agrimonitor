@@ -7,9 +7,13 @@ from app.db.database import get_db
 from app.models.user import User
 from app.schemas.auth import TokenResponse, UserCreate, UserLogin, UserRead
 from app.services.auth_service import authenticate_user, register_user
-from app.services.login_protection import login_rate_limiter
+from app.services.login_protection import LoginProtectionService
 
 router = APIRouter()
+
+
+def get_login_protection(request: Request) -> LoginProtectionService:
+    return request.app.state.login_protection
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
@@ -18,9 +22,14 @@ def register(payload: UserCreate, db: Session = Depends(get_db)) -> TokenRespons
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: Request, payload: UserLogin, db: Session = Depends(get_db)) -> TokenResponse:
-    context = login_rate_limiter.before_login(payload.email, request)
-    return authenticate_user(db, payload, context)
+def login(
+    request: Request,
+    payload: UserLogin,
+    db: Session = Depends(get_db),
+    login_protection: LoginProtectionService = Depends(get_login_protection),
+) -> TokenResponse:
+    context = login_protection.before_login(payload.email, request)
+    return authenticate_user(db, payload, context, login_protection)
 
 
 @router.get("/me", response_model=UserRead)

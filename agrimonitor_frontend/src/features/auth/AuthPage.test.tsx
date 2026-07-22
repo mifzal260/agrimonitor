@@ -56,4 +56,18 @@ describe("AuthPage login protection UI", () => {
 
     expect(await screen.findByText(/60 saat|60 seconds/i)).toBeInTheDocument();
   });
+
+  it("shows a generic service message and re-enables login after 503", async () => {
+    const user = userEvent.setup();
+    vi.mocked(login).mockRejectedValue(new ApiError("redis://secret@internal-host", 503));
+
+    render(<AuthPage onAuthenticated={vi.fn()} />);
+    await user.type(screen.getByLabelText(/emel|email/i), "farmer@example.com");
+    await user.type(screen.getByLabelText(/kata laluan|password/i), "password123");
+    await user.click(screen.getByRole("button", { name: /log masuk|login/i }));
+
+    expect(await screen.findByText("Perkhidmatan log masuk tidak tersedia buat sementara waktu. Sila cuba lagi.")).toBeInTheDocument();
+    expect(screen.queryByText(/internal-host|redis:\/\//i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /log masuk|login/i })).toBeEnabled();
+  });
 });

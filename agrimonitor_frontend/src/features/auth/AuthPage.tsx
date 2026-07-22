@@ -41,6 +41,8 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
             ? t("auth.tooManyAttemptsWithRetry", { seconds: err.retryAfterSeconds })
             : t("auth.tooManyAttempts"),
         );
+      } else if (view === "login" && err instanceof ApiError && err.status === 503) {
+        setError(t("auth.loginServiceUnavailable"));
       } else if (view === "login" && err instanceof ApiError && err.status === 401) {
         setError(t("auth.invalidCredentials"));
       } else {

@@ -18,6 +18,16 @@ services:
         sync: false
       - key: CORS_ORIGINS
         value: https://agrimonitor-frontend.onrender.com
+      - key: LOGIN_PROTECTION_STORE
+        value: memory
+      - key: LOGIN_PROTECTION_FAIL_MODE
+        value: closed
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_KEY_PREFIX
+        value: agrimonitor:login-protection
+      - key: REDIS_MAX_CONNECTIONS
+        value: 20
 
   - type: web
     name: agrimonitor-frontend
