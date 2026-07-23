@@ -1,20 +1,49 @@
 from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+BCRYPT_ROUNDS = 12
+MAX_BCRYPT_PASSWORD_BYTES = 72
 DUMMY_PASSWORD_HASH = "$2b$12$7EqJtq98hPqEX7fNZaFWoOhi9L89XxI6zJFwFAt8xVbXzQl42H9Xi"
 
 
+class PasswordTooLongError(ValueError):
+    pass
+
+
+def validate_password_length(password: str) -> str:
+    if len(password.encode("utf-8")) > MAX_BCRYPT_PASSWORD_BYTES:
+        raise PasswordTooLongError(
+            f"Password must not exceed {MAX_BCRYPT_PASSWORD_BYTES} UTF-8 bytes"
+        )
+    return password
+
+
 def hash_password(password: str) -> str:
-    return password_context.hash(password)
+    password_bytes = validate_password_length(password).encode("utf-8")
+    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS, prefix=b"2b")
+    return bcrypt.hashpw(password_bytes, salt).decode("ascii")
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return password_context.verify(plain_password, password_hash)
+    try:
+        password_bytes = plain_password.encode("utf-8")
+        password_hash_bytes = password_hash.encode("ascii")
+    except UnicodeEncodeError:
+        return False
+
+    try:
+        if len(password_bytes) > MAX_BCRYPT_PASSWORD_BYTES:
+            # Perform one bcrypt operation without allowing bcrypt's legacy
+            # 72-byte truncation semantics to authenticate an oversized input.
+            bcrypt.checkpw(b"\x00" * MAX_BCRYPT_PASSWORD_BYTES, password_hash_bytes)
+            return False
+        return bcrypt.checkpw(password_bytes, password_hash_bytes)
+    except ValueError:
+        return False
 
 
 def create_access_token(subject: str, role: str) -> str:

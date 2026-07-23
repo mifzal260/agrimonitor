@@ -1,4 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.core.security import validate_password_length
 
 
 class UserBase(BaseModel):
@@ -8,6 +10,11 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def require_bcrypt_compatible_password(cls, value: str) -> str:
+        return validate_password_length(value)
 
 
 class UserLogin(BaseModel):

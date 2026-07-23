@@ -110,6 +110,108 @@ def test_login_unknown_user_uses_same_generic_message(client: TestClient) -> Non
     assert wrong_password.json() == unknown_user.json() == {"detail": "Nama pengguna atau kata laluan tidak sah."}
 
 
+def test_unknown_user_still_runs_dummy_password_verification(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import security
+    from app.services import auth_service
+
+    calls: list[tuple[str, str]] = []
+
+    def tracked_verify(password: str, password_hash: str) -> bool:
+        calls.append((password, password_hash))
+        return security.verify_password(password, password_hash)
+
+    monkeypatch.setattr(auth_service, "verify_password", tracked_verify)
+
+    response = post_login(client, "missing@example.com", "wrong-password")
+
+    assert response.status_code == 401
+    assert calls == [("wrong-password", security.DUMMY_PASSWORD_HASH)]
+
+
+def test_register_accepts_password_at_72_ascii_bytes(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test Farmer", "email": "ascii@example.com", "password": "a" * 72},
+    )
+
+    assert response.status_code == 201
+
+
+def test_register_rejects_password_at_73_ascii_bytes(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test Farmer", "email": "ascii@example.com", "password": "a" * 73},
+    )
+
+    assert response.status_code == 422
+
+
+def test_register_accepts_unicode_password_at_72_bytes(client: TestClient) -> None:
+    password = "é" * 36
+    assert len(password.encode("utf-8")) == 72
+
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test Farmer", "email": "unicode@example.com", "password": password},
+    )
+
+    assert response.status_code == 201
+
+
+def test_register_rejects_password_over_72_utf8_bytes(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Test Farmer", "email": "farmer@example.com", "password": "é" * 37},
+    )
+
+    assert response.status_code == 422
+
+
+def test_login_rejects_empty_password_without_crashing(client: TestClient) -> None:
+    response = post_login(client, "missing@example.com", "")
+
+    assert response.status_code == 422
+
+
+def test_unknown_user_with_long_password_runs_one_dummy_bcrypt_operation(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core import security
+
+    calls: list[tuple[bytes, bytes]] = []
+    original_checkpw = security.bcrypt.checkpw
+
+    def tracked_checkpw(password: bytes, password_hash: bytes) -> bool:
+        calls.append((password, password_hash))
+        return original_checkpw(password, password_hash)
+
+    monkeypatch.setattr(security.bcrypt, "checkpw", tracked_checkpw)
+
+    response = post_login(client, "missing@example.com", "é" * 37)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Nama pengguna atau kata laluan tidak sah."}
+    assert calls == [
+        (
+            b"\x00" * security.MAX_BCRYPT_PASSWORD_BYTES,
+            security.DUMMY_PASSWORD_HASH.encode("ascii"),
+        )
+    ]
+
+
+def test_login_with_password_over_72_utf8_bytes_fails_generically(client: TestClient) -> None:
+    register_user(client)
+
+    response = post_login(client, "farmer@example.com", "é" * 37)
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Nama pengguna atau kata laluan tidak sah."}
+
+
 def test_account_lockout_after_repeated_failures_and_retry_after(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings
     from app.services.login_protection import set_login_rate_limiter_clock
