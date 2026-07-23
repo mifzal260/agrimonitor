@@ -233,3 +233,40 @@ Jika hanya satu instance tersedia, nyatakan bahawa shared Redis aktif tetapi sif
 Pantau connected clients, memory, latency, rejected connections, evictions, expiry, pool exhaustion, dan error count menggunakan metrics sedia ada Render. Aplikasi menggunakan satu pool bagi setiap process, maksimum 20 connection, timeout dua saat, Lua atomik, dan tidak menggunakan `KEYS` atau scan pada laluan login.
 
 Jika activation gagal, tukar `LOGIN_PROTECTION_STORE=memory` dan redeploy. Jangan padam Key Value atau `REDIS_URL` ketika rollback awal. Memory mode menghilangkan perlindungan distributed dan tidak menggunakan lockout Redis yang masih aktif; ia hanya rollback kecemasan sementara punca kegagalan disiasat.
+
+## 7. Deployment Pengukuhan Pendaftaran dan Admin
+
+Environment backend:
+
+```env
+REGISTRATION_RATE_LIMIT_ENABLED=true
+REGISTRATION_MAX_ATTEMPTS_PER_EMAIL=5
+REGISTRATION_EMAIL_WINDOW_SECONDS=1800
+REGISTRATION_MAX_ATTEMPTS_PER_IP=10
+REGISTRATION_IP_WINDOW_SECONDS=3600
+```
+
+Limiter menggunakan protection store yang sama dengan login. Sebelum deploy, sahkan nilai runtime `LOGIN_PROTECTION_STORE` di dashboard; `render.yaml` masih mempunyai baseline memory dan tidak boleh digunakan untuk menyimpulkan override production.
+
+Runbook:
+
+1. Deploy kod selepas quality gate lulus.
+2. Daftar akaun ujian awam dan sahkan role `user`.
+3. Buka shell backend yang hanya boleh dicapai operator.
+4. Jalankan `python -m app.cli.create_admin`.
+5. Masukkan password melalui prompt tersembunyi, bukan argument CLI.
+6. Login sebagai admin dan sahkan `/api/v1/auth/admin-check` memberi 200.
+7. Sahkan pengguna biasa mendapat 403 pada endpoint admin.
+8. Semak event registration/admin dan pastikan tiada password, token atau email mentah.
+
+Tiada migration diperlukan dan role akaun sedia ada tidak berubah.
+
+Rollback:
+
+- kekalkan Redis, secret dan role pengguna sedia ada;
+- pulihkan release terakhir yang selamat;
+- jika release rollback mempunyai first-user auto-admin, sekat `/api/v1/auth/register` pada edge sebelum rollback;
+- jangan rollback kepada first-user auto-admin dengan registration awam terbuka;
+- uji readiness, registration user, login dan authorization selepas pemulihan.
+
+Butiran lengkap: `docs/admin-provisioning-registration-security.md`.

@@ -1,7 +1,7 @@
 # Dokumentasi Projek AgriMonitor
 
-Tarikh kemas kini: 16 Julai 2026  
-Status: MVP fasa 1 hingga 10 telah dibangunkan; penambahbaikan frontend Fasa 6.1 masih berada dalam working tree dan belum dikomit.
+Tarikh kemas kini: 23 Julai 2026
+Status: MVP fasa 1 hingga 10 telah dibangunkan; pengukuhan pendaftaran/admin telah diuji secara lokal tetapi belum dideploy ke production.
 
 ## 1. Ringkasan Projek
 
@@ -56,7 +56,7 @@ Keperluan semasa frontend ialah Node.js `20.19.0` atau lebih baharu.
 - PostgreSQL melalui psycopg
 - Pydantic Settings
 - JWT melalui python-jose
-- Passlib dan bcrypt untuk kata laluan
+- Direct bcrypt 5.x untuk kata laluan
 - Uvicorn sebagai pelayan aplikasi
 
 ### Infrastruktur
@@ -120,6 +120,10 @@ agrimonitor/
 ### 6.1 Autentikasi
 
 - Pendaftaran akaun.
+- Pendaftaran awam sentiasa menghasilkan role `user` dan menolak field privileged.
+- Admin diwujudkan oleh operator melalui `python -m app.cli.create_admin`, bukan pendaftaran awam.
+- Pendaftaran dilindungi limiter email dan IP melalui protection store yang sama dengan login.
+- Duplicate email menggunakan mesej awam neutral dan sebab sebenar direkod dalam security log.
 - Login menggunakan e-mel dan kata laluan.
 - Kata laluan disimpan dalam bentuk hash.
 - Backend mengeluarkan JWT selepas autentikasi berjaya.

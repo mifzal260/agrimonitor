@@ -19,6 +19,16 @@ services:
         sync: false
       - key: CORS_ORIGINS
         value: https://agrimonitor-frontend.onrender.com
+      - key: REGISTRATION_RATE_LIMIT_ENABLED
+        value: true
+      - key: REGISTRATION_MAX_ATTEMPTS_PER_EMAIL
+        value: 5
+      - key: REGISTRATION_EMAIL_WINDOW_SECONDS
+        value: 1800
+      - key: REGISTRATION_MAX_ATTEMPTS_PER_IP
+        value: 10
+      - key: REGISTRATION_IP_WINDOW_SECONDS
+        value: 3600
       - key: LOGIN_PROTECTION_STORE
         value: memory
       - key: LOGIN_PROTECTION_FAIL_MODE

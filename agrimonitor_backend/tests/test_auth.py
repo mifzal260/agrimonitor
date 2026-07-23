@@ -17,7 +17,7 @@ def test_register_success_returns_token_without_password_hash(client: TestClient
     assert data["token_type"] == "bearer"
     assert data["access_token"]
     assert data["user"]["email"] == "farmer@example.com"
-    assert data["user"]["role"] == "admin"
+    assert data["user"]["role"] == "user"
     assert "password_hash" not in data["user"]
     assert "password" not in data["user"]
 
@@ -31,6 +31,7 @@ def test_register_duplicate_email_returns_conflict(client: TestClient) -> None:
     )
 
     assert response.status_code == 409
+    assert response.json() == {"detail": "Pendaftaran tidak dapat diproses."}
 
 
 def test_login_success(client: TestClient) -> None:

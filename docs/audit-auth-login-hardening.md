@@ -11,7 +11,7 @@ Pengukuhan login menambah perlindungan khusus pada `POST /api/v1/auth/login` tan
 - Current user: `GET /api/v1/auth/me`
 - Admin check: `GET /api/v1/auth/admin-check`
 - Password verification: `app.core.security.verify_password`
-- Password hashing: `passlib` bcrypt melalui `CryptContext`
+- Password hashing: direct `bcrypt 5.x` dengan hash baharu `$2b$`, cost 12, dan had 72 byte UTF-8
 - Refresh token: belum wujud dalam MVP ini; tiada session revocation server-side untuk dilaksanakan tanpa reka bentuk baharu.
 
 ## Polisi Rate Limit dan Lockout
@@ -229,3 +229,26 @@ Audit pada 23 Julai 2026 mengesahkan kod dan konfigurasi repository bersedia unt
 Activation mesti mengikuti urutan memory baseline, provisioning internal Key Value, pemasangan secret ketika masih memory mode, kemudian pertukaran eksplisit ke Redis. Keputusan sebenar setiap ujian perlu direkod selepas deployment; ketiadaan bukti multi-instance tidak boleh dilaporkan sebagai distributed verification yang berjaya.
 
 Rollback kecemasan ialah menukar `LOGIN_PROTECTION_STORE=memory` dan redeploy tanpa memadam Redis atau secret. Ini menutup penggunaan shared lockout buat sementara dan mengembalikan risiko state berasingan/hilang selepas restart. Redis kekal dependency kritikal apabila mode Redis aktif, dan fail-closed sengaja menutup login ketika outage.
+
+## Pengukuhan Pendaftaran dan Bootstrap Admin
+
+First-user auto-admin telah dibuang daripada public registration. `POST /api/v1/auth/register` kini:
+
+- menetapkan role `user` secara eksplisit pada server;
+- menolak extra field, termasuk `role`, `is_admin`, `is_superuser` dan `permissions`;
+- menggunakan unique constraint DB dan rollback untuk duplicate/race;
+- memberi mesej duplicate neutral;
+- menggunakan limiter email/IP pada protection store yang sama seperti login;
+- merekod success, failure, rate limit dan privileged-field attempt tanpa password/token/email mentah.
+
+Default limiter registration:
+
+```env
+REGISTRATION_RATE_LIMIT_ENABLED=true
+REGISTRATION_MAX_ATTEMPTS_PER_EMAIL=5
+REGISTRATION_EMAIL_WINDOW_SECONDS=1800
+REGISTRATION_MAX_ATTEMPTS_PER_IP=10
+REGISTRATION_IP_WINDOW_SECONDS=3600
+```
+
+Admin hanya diwujudkan oleh operator melalui `python -m app.cli.create_admin`. Password dibaca melalui prompt tersembunyi dan role admin ditetapkan server-side. Tiada endpoint bootstrap admin ditambah. Runbook penuh berada dalam `docs/admin-provisioning-registration-security.md`.

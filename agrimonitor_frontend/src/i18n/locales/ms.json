@@ -64,12 +64,16 @@
     "createAccount": "Cipta akaun",
     "needAccount": "Perlukan akaun? Daftar",
     "alreadyRegistered": "Sudah berdaftar? Log masuk",
-    "intro": "Akses ruang kerja pemantauan ladang anda. Akaun pertama yang didaftarkan akan menjadi pentadbir sistem.",
+    "intro": "Akses ruang kerja pemantauan ladang anda. Pendaftaran awam sentiasa menghasilkan akaun pengguna biasa.",
     "authenticationFailed": "Pengesahan gagal",
     "invalidCredentials": "Nama pengguna atau kata laluan tidak sah.",
     "tooManyAttempts": "Terlalu banyak percubaan log masuk. Sila cuba sebentar lagi.",
     "tooManyAttemptsWithRetry": "Terlalu banyak percubaan log masuk. Sila cuba semula dalam {{seconds}} saat.",
-    "loginServiceUnavailable": "Perkhidmatan log masuk tidak tersedia buat sementara waktu. Sila cuba lagi."
+    "loginServiceUnavailable": "Perkhidmatan log masuk tidak tersedia buat sementara waktu. Sila cuba lagi.",
+    "registrationFailed": "Pendaftaran tidak dapat diproses.",
+    "registrationTooManyAttempts": "Terlalu banyak percubaan pendaftaran. Sila cuba sebentar lagi.",
+    "registrationTooManyAttemptsWithRetry": "Terlalu banyak percubaan pendaftaran. Sila cuba semula dalam {{seconds}} saat.",
+    "registrationServiceUnavailable": "Perkhidmatan pendaftaran tidak tersedia buat sementara waktu. Sila cuba lagi."
   },
   "dashboard": {
     "title": "Papan Pemuka",

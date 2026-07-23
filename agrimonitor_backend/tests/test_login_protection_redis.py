@@ -10,6 +10,7 @@ from app.core.config import Settings
 from app.services.login_protection import (
     InMemoryLoginProtectionStore,
     LoginProtectionPolicy,
+    RegistrationProtectionPolicy,
     LoginProtectionService,
     LoginProtectionStoreUnavailable,
     RedisLoginProtectionStore,
@@ -40,6 +41,17 @@ def policy(**overrides: int) -> LoginProtectionPolicy:
     }
     values.update(overrides)
     return LoginProtectionPolicy(**values)
+
+
+def registration_policy(**overrides: int) -> RegistrationProtectionPolicy:
+    values = {
+        "email_threshold": 5,
+        "email_window_seconds": 1800,
+        "ip_threshold": 10,
+        "ip_window_seconds": 3600,
+    }
+    values.update(overrides)
+    return RegistrationProtectionPolicy(**values)
 
 
 def shared_stores(clock: FakeClock) -> tuple[fakeredis.FakeRedis, RedisLoginProtectionStore, RedisLoginProtectionStore]:
@@ -303,3 +315,68 @@ def test_redis_factory_applies_pool_limit_and_timeouts() -> None:
     assert kwargs["socket_timeout"] == 1.5
     assert kwargs["socket_connect_timeout"] == 1.25
     store.close()
+
+def test_registration_attempts_are_shared_between_redis_store_instances() -> None:
+    _, first, second = shared_stores(FakeClock())
+    limited = registration_policy(email_threshold=2, ip_threshold=100)
+
+    assert first.check_and_record_registration("email-hash", "ip-hash", "1", limited).allowed
+    assert second.check_and_record_registration("email-hash", "ip-hash", "2", limited).allowed
+    blocked = first.check_and_record_registration("email-hash", "ip-hash", "3", limited)
+
+    assert not blocked.allowed
+    assert blocked.block_reason == "registration_email_rate_limit"
+    assert blocked.retry_after_seconds == 1800
+
+
+def test_registration_ip_limit_is_shared_between_redis_store_instances() -> None:
+    _, first, second = shared_stores(FakeClock())
+    limited = registration_policy(email_threshold=100, ip_threshold=2)
+
+    assert first.check_and_record_registration("email-1", "ip-hash", "1", limited).allowed
+    assert second.check_and_record_registration("email-2", "ip-hash", "2", limited).allowed
+    blocked = first.check_and_record_registration("email-3", "ip-hash", "3", limited)
+
+    assert not blocked.allowed
+    assert blocked.block_reason == "registration_ip_rate_limit"
+    assert blocked.retry_after_seconds == 3600
+
+
+def test_registration_redis_keys_use_hashes_and_ttl() -> None:
+    client, first, _ = shared_stores(FakeClock())
+    email = "Farmer@example.com"
+    email_hash = hash_identifier(normalize_username(email))
+    ip_hash = hash_identifier("198.51.100.10")
+
+    first.check_and_record_registration(email_hash, ip_hash, "attempt", registration_policy())
+
+    keys = [str(key) for key in client.scan_iter(match="test:login:registration:*")]
+    assert len(keys) == 2
+    assert all(client.pttl(key) > 0 for key in keys)
+    assert email.lower() not in " ".join(keys).lower()
+
+
+def test_registration_store_outage_is_controlled_and_fail_closed(caplog: pytest.LogCaptureFixture) -> None:
+    server = fakeredis.FakeServer()
+    server.connected = False
+    store = RedisLoginProtectionStore(fakeredis.FakeRedis(server=server), "test:login")
+    service = LoginProtectionService(store=store, config=service_config())
+
+    with caplog.at_level("ERROR", logger="agrimonitor.security"), pytest.raises(HTTPException) as caught:
+        service.before_registration("farmer@example.com", request_for())
+
+    assert caught.value.status_code == 503
+    assert "Redis" not in str(caught.value.detail)
+    assert any(
+        record.__dict__.get("event") == "registration_failed"
+        and record.__dict__.get("failure_reason") == "protection_store_unavailable"
+        for record in caplog.records
+    )
+
+
+def test_memory_reset_clears_registration_state() -> None:
+    store = InMemoryLoginProtectionStore(clock=lambda: 1000.0)
+    store.check_and_record_registration("email", "ip", "attempt", registration_policy())
+    store.reset()
+    assert not store.registration_email_attempts
+    assert not store.registration_ip_attempts

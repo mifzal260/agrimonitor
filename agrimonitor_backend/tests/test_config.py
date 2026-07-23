@@ -131,3 +131,30 @@ def test_redis_store_is_selected_by_factory(monkeypatch: pytest.MonkeyPatch) -> 
     service = build_login_protection_service(config)
 
     assert service.store is sentinel
+
+
+def test_registration_rate_limit_settings_parse_and_require_positive_values() -> None:
+    parsed = Settings(
+        jwt_secret_key="local-test-secret",
+        registration_rate_limit_enabled="false",
+        registration_max_attempts_per_email="7",
+        registration_email_window_seconds="1900",
+        registration_max_attempts_per_ip="12",
+        registration_ip_window_seconds="3700",
+        _env_file=None,
+    )
+
+    assert parsed.registration_rate_limit_enabled is False
+    assert parsed.registration_max_attempts_per_email == 7
+    assert parsed.registration_email_window_seconds == 1900
+    assert parsed.registration_max_attempts_per_ip == 12
+    assert parsed.registration_ip_window_seconds == 3700
+
+    for field in (
+        "registration_max_attempts_per_email",
+        "registration_email_window_seconds",
+        "registration_max_attempts_per_ip",
+        "registration_ip_window_seconds",
+    ):
+        with pytest.raises(ValidationError):
+            Settings(jwt_secret_key="local-test-secret", **{field: 0}, _env_file=None)

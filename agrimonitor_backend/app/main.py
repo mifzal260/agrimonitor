@@ -2,6 +2,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -28,7 +30,10 @@ async def lifespan(app: FastAPI):
     if settings.prepare_database_on_startup:
         logger.info("Preparing database on startup")
         prepare_database()
-    if settings.login_protection_store == "redis" and settings.login_rate_limit_enabled:
+    if settings.login_protection_store == "redis" and (
+        settings.login_rate_limit_enabled
+        or settings.registration_rate_limit_enabled
+    ):
         try:
             await run_in_threadpool(login_protection.ready)
         except LoginProtectionStoreUnavailable:
@@ -63,6 +68,38 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        if request.url.path == f"{settings.api_prefix}/auth/register":
+            privileged_names = {
+                "role",
+                "is_admin",
+                "is_superuser",
+                "permissions",
+                "status",
+                "organization_owner",
+                "approved",
+            }
+            attempted_fields = {
+                str(error["loc"][-1])
+                for error in exc.errors()
+                if error.get("loc") and str(error["loc"][-1]) in privileged_names
+            }
+            body = exc.body if isinstance(exc.body, dict) else {}
+            email = str(body.get("email", "unknown-registration-identity"))
+            protection = request.app.state.login_protection
+            if attempted_fields:
+                protection.record_privileged_field_attempt(email, request, attempted_fields)
+            try:
+                protection.before_registration(email, request)
+            except HTTPException as protection_error:
+                return JSONResponse(
+                    status_code=protection_error.status_code,
+                    content={"detail": protection_error.detail},
+                    headers=protection_error.headers,
+                )
+        return await request_validation_exception_handler(request, exc)
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

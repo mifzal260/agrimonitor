@@ -35,16 +35,26 @@ export function AuthPage({ onAuthenticated }: AuthPageProps) {
       onAuthenticated(response);
     } catch (err) {
       clearToken();
-      if (err instanceof ApiError && err.status === 429) {
+      if (view === "register" && err instanceof ApiError && err.status === 429) {
+        setError(
+          err.retryAfterSeconds
+            ? t("auth.registrationTooManyAttemptsWithRetry", { seconds: err.retryAfterSeconds })
+            : t("auth.registrationTooManyAttempts"),
+        );
+      } else if (view === "login" && err instanceof ApiError && err.status === 429) {
         setError(
           err.retryAfterSeconds
             ? t("auth.tooManyAttemptsWithRetry", { seconds: err.retryAfterSeconds })
             : t("auth.tooManyAttempts"),
         );
+      } else if (view === "register" && err instanceof ApiError && err.status === 503) {
+        setError(t("auth.registrationServiceUnavailable"));
       } else if (view === "login" && err instanceof ApiError && err.status === 503) {
         setError(t("auth.loginServiceUnavailable"));
       } else if (view === "login" && err instanceof ApiError && err.status === 401) {
         setError(t("auth.invalidCredentials"));
+      } else if (view === "register") {
+        setError(t("auth.registrationFailed"));
       } else {
         setError(err instanceof Error ? err.message : t("auth.authenticationFailed"));
       }

@@ -113,6 +113,8 @@ A starter `render.yaml` is included at the project root.
 
 ## Security Notes
 
+Current security controls, production verification status, and residual risks are documented in [`docs/keselamatan-agrimonitor-semasa.md`](docs/keselamatan-agrimonitor-semasa.md).
+
 - Do not commit `.env` files.
 - Do not hardcode real secrets.
 - Set `JWT_SECRET_KEY` through environment variables.

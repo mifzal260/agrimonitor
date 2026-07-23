@@ -17,8 +17,14 @@ def get_login_protection(request: Request) -> LoginProtectionService:
 
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
-def register(payload: UserCreate, db: Session = Depends(get_db)) -> TokenResponse:
-    return register_user(db, payload)
+def register(
+    request: Request,
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    login_protection: LoginProtectionService = Depends(get_login_protection),
+) -> TokenResponse:
+    context = login_protection.before_registration(payload.email, request)
+    return register_user(db, payload, context, login_protection)
 
 
 @router.post("/login", response_model=TokenResponse)

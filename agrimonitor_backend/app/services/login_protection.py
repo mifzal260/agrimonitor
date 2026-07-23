@@ -21,6 +21,8 @@ from app.core.config import Settings, settings
 GENERIC_LOGIN_ERROR = "Nama pengguna atau kata laluan tidak sah."
 RATE_LIMIT_ERROR = "Terlalu banyak percubaan log masuk. Sila cuba sebentar lagi."
 STORE_UNAVAILABLE_ERROR = "Perkhidmatan log masuk tidak tersedia buat sementara waktu. Sila cuba lagi."
+REGISTRATION_RATE_LIMIT_ERROR = "Terlalu banyak percubaan pendaftaran. Sila cuba sebentar lagi."
+REGISTRATION_STORE_UNAVAILABLE_ERROR = "Perkhidmatan pendaftaran tidak tersedia buat sementara waktu. Sila cuba lagi."
 
 security_logger = logging.getLogger("agrimonitor.security")
 Clock = Callable[[], float]
@@ -44,6 +46,23 @@ class LoginProtectionPolicy:
             ip_window_seconds=config.login_ip_window_seconds,
             lockout_base_seconds=config.login_lockout_base_seconds,
             lockout_max_seconds=config.login_lockout_max_seconds,
+        )
+
+
+@dataclass(frozen=True)
+class RegistrationProtectionPolicy:
+    email_threshold: int
+    email_window_seconds: int
+    ip_threshold: int
+    ip_window_seconds: int
+
+    @classmethod
+    def from_settings(cls, config: Settings = settings) -> "RegistrationProtectionPolicy":
+        return cls(
+            email_threshold=config.registration_max_attempts_per_email,
+            email_window_seconds=config.registration_email_window_seconds,
+            ip_threshold=config.registration_max_attempts_per_ip,
+            ip_window_seconds=config.registration_ip_window_seconds,
         )
 
 
@@ -91,6 +110,14 @@ class LoginProtectionStore(Protocol):
         policy: LoginProtectionPolicy,
     ) -> AttemptResult: ...
 
+    def check_and_record_registration(
+        self,
+        email_hash: str,
+        source_ip_hash: str,
+        member: str,
+        policy: RegistrationProtectionPolicy,
+    ) -> AttemptResult: ...
+
     def record_failure(
         self,
         username_hash: str,
@@ -120,6 +147,8 @@ class MemoryAccountState:
 class InMemoryLoginProtectionStore:
     clock: Clock = monotonic
     account_states: dict[str, MemoryAccountState] = field(default_factory=dict)
+    registration_email_attempts: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
+    registration_ip_attempts: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     ip_attempts: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     lock: threading.RLock = field(default_factory=threading.RLock)
 
@@ -150,6 +179,33 @@ class InMemoryLoginProtectionStore:
             if state is not None and state.locked_until > now:
                 return AttemptResult(False, max(1, math.ceil(state.locked_until - now)), len(ip_bucket), "account_locked")
             return AttemptResult(True, attempt_count=len(ip_bucket))
+
+    def check_and_record_registration(
+        self,
+        email_hash: str,
+        source_ip_hash: str,
+        member: str,
+        policy: RegistrationProtectionPolicy,
+    ) -> AttemptResult:
+        del member
+        now = self.clock()
+        with self.lock:
+            self._cleanup_registration(now, policy)
+            ip_bucket = self.registration_ip_attempts[source_ip_hash]
+            prune_bucket(ip_bucket, now - policy.ip_window_seconds)
+            if len(ip_bucket) >= policy.ip_threshold:
+                retry_after = seconds_until_oldest_expires(ip_bucket, now, policy.ip_window_seconds)
+                return AttemptResult(False, retry_after, len(ip_bucket), "registration_ip_rate_limit")
+            ip_bucket.append(now)
+
+            email_bucket = self.registration_email_attempts[email_hash]
+            prune_bucket(email_bucket, now - policy.email_window_seconds)
+            if len(email_bucket) >= policy.email_threshold:
+                retry_after = seconds_until_oldest_expires(email_bucket, now, policy.email_window_seconds)
+                return AttemptResult(False, retry_after, len(email_bucket), "registration_email_rate_limit")
+            email_bucket.append(now)
+            return AttemptResult(True, attempt_count=len(email_bucket))
+
 
     def record_failure(
         self,
@@ -184,6 +240,8 @@ class InMemoryLoginProtectionStore:
         with self.lock:
             self.account_states.clear()
             self.ip_attempts.clear()
+            self.registration_email_attempts.clear()
+            self.registration_ip_attempts.clear()
 
     def ping(self) -> bool:
         return True
@@ -200,6 +258,16 @@ class InMemoryLoginProtectionStore:
             prune_bucket(bucket, now - policy.ip_window_seconds)
             if not bucket:
                 self.ip_attempts.pop(source_ip_hash, None)
+
+    def _cleanup_registration(self, now: float, policy: RegistrationProtectionPolicy) -> None:
+        for email_hash, bucket in list(self.registration_email_attempts.items()):
+            prune_bucket(bucket, now - policy.email_window_seconds)
+            if not bucket:
+                self.registration_email_attempts.pop(email_hash, None)
+        for source_ip_hash, bucket in list(self.registration_ip_attempts.items()):
+            prune_bucket(bucket, now - policy.ip_window_seconds)
+            if not bucket:
+                self.registration_ip_attempts.pop(source_ip_hash, None)
 
 
 CHECK_AND_RECORD_ATTEMPT_SCRIPT = """
@@ -274,6 +342,40 @@ return {failure_count, lockout_seconds, lockout_level}
 """
 
 
+CHECK_AND_RECORD_REGISTRATION_SCRIPT = """
+local now_ms
+if tonumber(ARGV[5]) > 0 then
+  now_ms = tonumber(ARGV[5])
+else
+  local redis_time = redis.call('TIME')
+  now_ms = (tonumber(redis_time[1]) * 1000) + math.floor(tonumber(redis_time[2]) / 1000)
+end
+local ip_window_ms = tonumber(ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now_ms - ip_window_ms)
+local ip_count = redis.call('ZCARD', KEYS[1])
+if ip_count >= tonumber(ARGV[3]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0)
+  local oldest_score = tonumber(redis.call('ZSCORE', KEYS[1], oldest[1]))
+  return {0, math.max(1, math.ceil(((oldest_score + ip_window_ms) - now_ms) / 1000)), ip_count, 1}
+end
+redis.call('ZADD', KEYS[1], now_ms, ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ip_window_ms)
+ip_count = ip_count + 1
+
+local email_window_ms = tonumber(ARGV[4])
+redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now_ms - email_window_ms)
+local email_count = redis.call('ZCARD', KEYS[2])
+if email_count >= tonumber(ARGV[6]) then
+  local oldest = redis.call('ZRANGE', KEYS[2], 0, 0)
+  local oldest_score = tonumber(redis.call('ZSCORE', KEYS[2], oldest[1]))
+  return {0, math.max(1, math.ceil(((oldest_score + email_window_ms) - now_ms) / 1000)), email_count, 2}
+end
+redis.call('ZADD', KEYS[2], now_ms, ARGV[1])
+redis.call('PEXPIRE', KEYS[2], email_window_ms)
+return {1, 0, email_count + 1, 0}
+"""
+
+
 class RedisLoginProtectionStore:
     def __init__(
         self,
@@ -289,6 +391,7 @@ class RedisLoginProtectionStore:
         self.owns_client = owns_client
         self._check_script = client.register_script(CHECK_AND_RECORD_ATTEMPT_SCRIPT)
         self._failure_script = client.register_script(RECORD_FAILURE_SCRIPT)
+        self._registration_script = client.register_script(CHECK_AND_RECORD_REGISTRATION_SCRIPT)
 
     @classmethod
     def from_settings(cls, config: Settings = settings) -> "RedisLoginProtectionStore":
@@ -323,6 +426,32 @@ class RedisLoginProtectionStore:
         reason_code = self._integer(values, 3)
         reason = {1: "ip_rate_limit", 2: "account_locked"}.get(reason_code)
         return AttemptResult(bool(self._integer(values, 0)), self._integer(values, 1), self._integer(values, 2), reason)
+
+    def check_and_record_registration(
+        self,
+        email_hash: str,
+        source_ip_hash: str,
+        member: str,
+        policy: RegistrationProtectionPolicy,
+    ) -> AttemptResult:
+        keys = [self.registration_ip_key(source_ip_hash), self.registration_email_key(email_hash)]
+        args = [
+            member,
+            policy.ip_window_seconds * 1000,
+            policy.ip_threshold,
+            policy.email_window_seconds * 1000,
+            self._now_override(),
+            policy.email_threshold,
+        ]
+        values = self._execute(self._registration_script, keys, args)
+        reason_code = self._integer(values, 3)
+        reason = {1: "registration_ip_rate_limit", 2: "registration_email_rate_limit"}.get(reason_code)
+        return AttemptResult(
+            bool(self._integer(values, 0)),
+            self._integer(values, 1),
+            self._integer(values, 2),
+            reason,
+        )
 
     def record_failure(
         self,
@@ -370,6 +499,12 @@ class RedisLoginProtectionStore:
     def ip_key(self, source_ip_hash: str) -> str:
         return f"{self.key_prefix}:ip:{source_ip_hash}"
 
+    def registration_email_key(self, email_hash: str) -> str:
+        return f"{self.key_prefix}:registration:email:{email_hash}"
+
+    def registration_ip_key(self, source_ip_hash: str) -> str:
+        return f"{self.key_prefix}:registration:ip:{source_ip_hash}"
+
     def _now_override(self) -> int:
         return self.clock_ms() if self.clock_ms is not None else 0
 
@@ -398,16 +533,7 @@ class LoginProtectionService:
     config: Settings = field(default_factory=lambda: settings)
 
     def before_login(self, username: str, request: Request) -> LoginAttemptContext:
-        normalized_username = normalize_username(username)
-        source_ip = get_source_ip(request, self.config)
-        context = LoginAttemptContext(
-            username=normalized_username,
-            username_hash=hash_identifier(normalized_username),
-            source_ip=source_ip,
-            source_ip_hash=hash_identifier(source_ip),
-            user_agent=request.headers.get("user-agent"),
-            request_id=request.headers.get("x-request-id"),
-        )
+        context = self._context(username, request)
         if not self.config.login_rate_limit_enabled:
             return context
         try:
@@ -424,6 +550,30 @@ class LoginProtectionService:
             reason = result.block_reason or "account_locked"
             self._log(event, context, failure_reason=reason, attempt_count=result.attempt_count, lockout_seconds=result.retry_after_seconds)
             raise_rate_limit(result.retry_after_seconds)
+        return context
+
+    def before_registration(self, email: str, request: Request) -> LoginAttemptContext:
+        context = self._context(email, request)
+        if not self.config.registration_rate_limit_enabled:
+            return context
+        try:
+            result = self.store.check_and_record_registration(
+                context.username_hash,
+                context.source_ip_hash,
+                unique_member(),
+                RegistrationProtectionPolicy.from_settings(self.config),
+            )
+        except LoginProtectionStoreUnavailable as exc:
+            self._store_unavailable(context, exc, registration=True)
+        if not result.allowed:
+            self._log(
+                "registration_rate_limit_hit",
+                context,
+                failure_reason=result.block_reason,
+                attempt_count=result.attempt_count,
+                lockout_seconds=result.retry_after_seconds,
+            )
+            raise_registration_rate_limit(result.retry_after_seconds)
         return context
 
     def record_success(self, context: LoginAttemptContext) -> None:
@@ -452,8 +602,24 @@ class LoginProtectionService:
         self._log("login_failed", context, failure_reason=reason, attempt_count=result.failure_count)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=GENERIC_LOGIN_ERROR)
 
+    def record_registration_success(self, context: LoginAttemptContext) -> None:
+        self._log("registration_success", context)
+
+    def record_registration_failure(self, context: LoginAttemptContext, reason: str) -> None:
+        self._log("registration_failed", context, failure_reason=reason)
+
+    def record_registration_duplicate(self, context: LoginAttemptContext) -> None:
+        self._log("registration_duplicate", context, failure_reason="duplicate_email")
+
+    def record_privileged_field_attempt(self, email: str, request: Request, fields: set[str]) -> None:
+        self._log(
+            "registration_privileged_field_attempt",
+            self._context(email, request),
+            failure_reason=",".join(sorted(fields)),
+        )
+
     def ready(self) -> bool:
-        if not self.config.login_rate_limit_enabled:
+        if not self.config.login_rate_limit_enabled and not self.config.registration_rate_limit_enabled:
             return True
         if not self.store.ping():
             raise LoginProtectionStoreUnavailable("Login protection store unavailable")
@@ -462,17 +628,43 @@ class LoginProtectionService:
     def close(self) -> None:
         self.store.close()
 
-    def _store_unavailable(self, context: LoginAttemptContext, exc: Exception) -> None:
-        security_logger.error(
-            "security_event",
-            extra={
-                "event": "login_protection_store_unavailable",
-                "username_hash": context.username_hash,
-                "source_ip": context.source_ip,
-                "request_id": context.request_id,
-            },
+    def _context(self, username: str, request: Request) -> LoginAttemptContext:
+        normalized_username = normalize_username(username)
+        source_ip = get_source_ip(request, self.config)
+        return LoginAttemptContext(
+            username=normalized_username,
+            username_hash=hash_identifier(normalized_username),
+            source_ip=source_ip,
+            source_ip_hash=hash_identifier(source_ip),
+            user_agent=request.headers.get("user-agent"),
+            request_id=request.headers.get("x-request-id"),
         )
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=STORE_UNAVAILABLE_ERROR) from exc
+
+    def _store_unavailable(
+        self,
+        context: LoginAttemptContext,
+        exc: Exception,
+        *,
+        registration: bool = False,
+    ) -> None:
+        event = "registration_failed" if registration else "login_protection_store_unavailable"
+        reason = "protection_store_unavailable" if registration else None
+        try:
+            security_logger.error(
+                "security_event",
+                extra={
+                    "event": event,
+                    "username_hash": context.username_hash,
+                    "source_ip": context.source_ip,
+                    "source_ip_hash": context.source_ip_hash,
+                    "request_id": context.request_id,
+                    "failure_reason": reason,
+                },
+            )
+        except Exception:
+            pass
+        detail = REGISTRATION_STORE_UNAVAILABLE_ERROR if registration else STORE_UNAVAILABLE_ERROR
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail) from exc
 
     def _log(
         self,
@@ -483,19 +675,23 @@ class LoginProtectionService:
         attempt_count: int | None = None,
         lockout_seconds: int | None = None,
     ) -> None:
-        security_logger.info(
-            "security_event",
-            extra={
-                "event": event,
-                "username_hash": context.username_hash,
-                "source_ip": context.source_ip,
-                "user_agent": context.user_agent,
-                "request_id": context.request_id,
-                "failure_reason": failure_reason,
-                "attempt_count": attempt_count,
-                "lockout_seconds": lockout_seconds,
-            },
-        )
+        try:
+            security_logger.info(
+                "security_event",
+                extra={
+                    "event": event,
+                    "username_hash": context.username_hash,
+                    "source_ip": context.source_ip,
+                    "source_ip_hash": context.source_ip_hash,
+                    "user_agent": context.user_agent,
+                    "request_id": context.request_id,
+                    "failure_reason": failure_reason,
+                    "attempt_count": attempt_count,
+                    "lockout_seconds": lockout_seconds,
+                },
+            )
+        except Exception:
+            return
 
 
 _default_memory_store = InMemoryLoginProtectionStore()
@@ -558,5 +754,13 @@ def raise_rate_limit(retry_after: int) -> None:
     raise HTTPException(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         detail=RATE_LIMIT_ERROR,
+        headers={"Retry-After": str(max(1, int(retry_after)))},
+    )
+
+
+def raise_registration_rate_limit(retry_after: int) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail=REGISTRATION_RATE_LIMIT_ERROR,
         headers={"Retry-After": str(max(1, int(retry_after)))},
     )

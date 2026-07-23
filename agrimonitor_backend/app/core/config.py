@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     login_ip_window_seconds: int = 900
     login_lockout_base_seconds: int = 60
     login_lockout_max_seconds: int = 1_800
+    registration_rate_limit_enabled: bool = True
+    registration_max_attempts_per_email: int = 5
+    registration_email_window_seconds: int = 1_800
+    registration_max_attempts_per_ip: int = 10
+    registration_ip_window_seconds: int = 3_600
     login_protection_store: Literal["memory", "redis"] = "memory"
     login_protection_fail_mode: Literal["closed"] = "closed"
     redis_url: str | None = None
@@ -73,6 +78,10 @@ class Settings(BaseSettings):
         "login_ip_window_seconds",
         "login_lockout_base_seconds",
         "login_lockout_max_seconds",
+        "registration_max_attempts_per_email",
+        "registration_email_window_seconds",
+        "registration_max_attempts_per_ip",
+        "registration_ip_window_seconds",
         "redis_socket_timeout_seconds",
         "redis_connect_timeout_seconds",
         "redis_health_check_interval_seconds",

@@ -64,12 +64,16 @@
     "createAccount": "Create account",
     "needAccount": "Need an account? Register",
     "alreadyRegistered": "Already registered? Login",
-    "intro": "Access your farm monitoring workspace. The first registered account becomes the system administrator.",
+    "intro": "Access your farm monitoring workspace. Public registration always creates a standard user account.",
     "authenticationFailed": "Authentication failed",
     "invalidCredentials": "Invalid username or password.",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
     "tooManyAttemptsWithRetry": "Too many login attempts. Please try again in {{seconds}} seconds.",
-    "loginServiceUnavailable": "The login service is temporarily unavailable. Please try again."
+    "loginServiceUnavailable": "The login service is temporarily unavailable. Please try again.",
+    "registrationFailed": "Registration could not be processed.",
+    "registrationTooManyAttempts": "Too many registration attempts. Please try again later.",
+    "registrationTooManyAttemptsWithRetry": "Too many registration attempts. Please try again in {{seconds}} seconds.",
+    "registrationServiceUnavailable": "The registration service is temporarily unavailable. Please try again."
   },
   "dashboard": {
     "title": "Dashboard",
