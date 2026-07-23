@@ -203,3 +203,29 @@ Memory mode masih hilang ketika restart dan tidak sesuai untuk deployment produc
 Route login dan kedua-dua readiness endpoint ialah synchronous `def`, maka FastAPI menjalankannya dalam worker thread. Ping startup dan penutupan pool dari lifespan async dijalankan melalui `run_in_threadpool`; tiada panggilan Redis blocking dibuat terus pada event loop dan tiada thread dicipta bagi setiap request. Satu pool dibuat bagi setiap process dengan default maksimum 20 connection serta socket/connect timeout 2 saat.
 
 `python-jose` membawa dependency transitif `ecdsa 0.19.2` yang mempunyai advisori tanpa versi pembaikan tersedia. Konfigurasi JWT semasa menggunakan HS256, jadi laluan ECDSA yang terjejas tidak digunakan oleh aplikasi ketika ini; dependency tersebut tetap tidak dianggap bebas risiko dan mesti terus dipantau. Pertukaran library JWT berada di luar skop fasa ini.
+
+### Status Activation Deployment
+
+**Status semasa: Redis login protection telah tersedia dalam kod tetapi belum diaktifkan pada deployment production.**
+
+| Tahap | Maksud | Status |
+| --- | --- | --- |
+| Implemented | Kod Redis distributed login protection tersedia dan diuji dalam repository. | Selesai |
+| Provisioned | Redis service deployment telah diwujudkan. | Belum |
+| Configured | Secret dan environment variables deployment telah dipasang. | Belum |
+| Activated | `LOGIN_PROTECTION_STORE=redis` telah ditetapkan pada production. | Belum |
+| Verified | Login, readiness, restart dan distributed state telah diuji pada deployment. | Belum |
+
+Deployment runbook telah disediakan. Provisioning, configuration, activation, production verification, distributed verification dan failure drill belum selesai.
+
+Audit pada 23 Julai 2026 mengesahkan kod dan konfigurasi repository bersedia untuk Redis, tetapi activation production belum dapat disahkan:
+
+- `render.yaml` masih menggunakan `LOGIN_PROTECTION_STORE=memory`.
+- `REDIS_URL` kekal secret tanpa nilai literal dalam Git.
+- Endpoint awam `/health`, `/health/ready`, dan `/api/v1/health/ready` masing-masing memberi HTTP 200.
+- Region, plan Key Value, bilangan worker/instance, metrics, dan log production memerlukan akses Render Dashboard yang tidak tersedia semasa audit.
+- Tiada akaun ujian atau maintenance window diberikan, maka controlled lockout, IP threshold, distributed-state verification, persistence selepas restart/deploy, dan failure drill tidak dilakukan terhadap production.
+
+Activation mesti mengikuti urutan memory baseline, provisioning internal Key Value, pemasangan secret ketika masih memory mode, kemudian pertukaran eksplisit ke Redis. Keputusan sebenar setiap ujian perlu direkod selepas deployment; ketiadaan bukti multi-instance tidak boleh dilaporkan sebagai distributed verification yang berjaya.
+
+Rollback kecemasan ialah menukar `LOGIN_PROTECTION_STORE=memory` dan redeploy tanpa memadam Redis atau secret. Ini menutup penggunaan shared lockout buat sementara dan mengembalikan risiko state berasingan/hilang selepas restart. Redis kekal dependency kritikal apabila mode Redis aktif, dan fail-closed sengaja menutup login ketika outage.

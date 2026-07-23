@@ -160,3 +160,76 @@ Pilihan selamat utama ialah pulihkan Redis atau rollback backend/config kepada r
 `render.yaml` sengaja mengekalkan `LOGIN_PROTECTION_STORE=memory` untuk langkah deploy pertama. Tukar environment deployment kepada `redis` hanya selepas `REDIS_URL` tersedia dan readiness boleh disahkan.
 
 > Status deployment repository: kod Redis sudah tersedia, tetapi `render.yaml` masih menggunakan memory mode. Deployment tidak distributed sehingga `LOGIN_PROTECTION_STORE=redis` dan secret `REDIS_URL` kedua-duanya ditetapkan.
+
+### Rekod Activation Deployment (23 Julai 2026)
+
+**Status semasa: Redis login protection telah tersedia dalam kod tetapi belum diaktifkan pada deployment production.**
+
+| Tahap | Maksud | Status |
+| --- | --- | --- |
+| Implemented | Kod Redis distributed login protection tersedia dan diuji dalam repository. | Selesai |
+| Provisioned | Render Key Value telah diwujudkan dalam workspace dan region backend. | Belum |
+| Configured | `REDIS_URL` dan environment variables deployment telah dipasang. | Belum |
+| Activated | `LOGIN_PROTECTION_STORE=redis` telah ditetapkan pada production. | Belum |
+| Verified | Login, readiness, restart dan distributed state telah diuji pada deployment. | Belum |
+
+Deployment runbook telah disediakan. Ia tidak bermaksud provisioning, configuration, activation atau verification telah selesai.
+
+Status yang boleh disahkan tanpa akses Render Dashboard:
+
+- Service backend dalam Blueprint bernama `agrimonitor-backend`, jenis Render web service dengan runtime Python.
+- Repository mempunyai `render.yaml` yang serasi dengan Render Blueprint, tetapi pautan Blueprint kepada service sebenar tidak boleh dibuktikan daripada repository atau endpoint awam.
+- Region backend tidak dinyatakan dalam Blueprint dan tidak didedahkan oleh endpoint awam. Jangan provision Key Value sebelum region sebenar disahkan dalam Dashboard; region service tidak boleh ditukar selepas penciptaan.
+- Commit Redis `48ba06c` belum berada pada `origin/main` ketika audit, jadi fasa deploy kod Redis dalam memory mode belum boleh dianggap selesai hanya berdasarkan keadaan Git tempatan.
+- Deployment awam memberi HTTP 200 untuk `/health`, `/health/ready`, dan `/api/v1/health/ready` pada 23 Julai 2026. Respons tidak mendedahkan Redis URL atau hostname.
+- Mod Redis sebenar, nilai secret, bilangan instance, dan log runtime tidak boleh diperiksa tanpa akses workspace Render. Oleh itu Redis **belum disahkan aktif** dan status selamat kekal `LOGIN_PROTECTION_STORE=memory`.
+- Controlled login test, distributed-state test, restart/deploy persistence test, dan Redis failure drill tidak dijalankan terhadap production kerana tiada akaun ujian atau maintenance window yang diluluskan.
+
+`render.yaml` menetapkan `healthCheckPath: /health` dan semua nilai operasi Redis secara eksplisit, tetapi sengaja mengekalkan memory mode sehingga migrasi berperingkat di bawah selesai.
+
+### Provisioning Render Key Value Secara Manual
+
+Gunakan Render Dashboard kerana region sebenar dan hubungan Blueprint tidak tersedia dalam sesi ini:
+
+1. Buka `agrimonitor-backend` dan catat region serta workspace sebenar.
+2. Cipta Render Key Value dalam workspace dan region yang sama. Render Key Value baharu menggunakan Valkey yang serasi dengan protokol Redis dan menyokong Lua.
+3. Sekat semua sambungan external; gunakan internal connection URL sahaja. Jangan salin URL ke repository, log, frontend, tiket, atau laporan.
+4. Pilih `noeviction`. Apabila memori penuh, write akan gagal dan login fail-closed; key perlindungan tidak akan dibuang secara rawak.
+5. Untuk staging kos minimum, pelan Free boleh digunakan tetapi persistence tidak tersedia dan state hilang apabila instance restart/upgrade. Untuk production yang memerlukan durability, gunakan sekurang-kurangnya pelan berbayar dengan `Journal + Snapshot`; ia boleh kehilangan sehingga kira-kira satu saat write ketika failure.
+6. Tetapkan internal connection URL sebagai secret `REDIS_URL` pada backend. Untuk service sedia ada, `sync: false` dalam kemas kini Blueprint tidak meminta nilai baharu, maka nilai mesti dimasukkan melalui Dashboard.
+7. Kekalkan `LOGIN_PROTECTION_STORE=memory`, deploy commit Redis, kemudian sahkan tiga endpoint readiness dan satu login akaun ujian.
+8. Selepas baseline lulus, tukar `LOGIN_PROTECTION_STORE=redis` dan redeploy. Jangan ubah nilai berikut:
+
+```text
+LOGIN_PROTECTION_FAIL_MODE=closed
+REDIS_KEY_PREFIX=agrimonitor:login-protection
+REDIS_SOCKET_TIMEOUT_SECONDS=2
+REDIS_CONNECT_TIMEOUT_SECONDS=2
+REDIS_HEALTH_CHECK_INTERVAL_SECONDS=30
+REDIS_MAX_CONNECTIONS=20
+```
+
+### Verification Selepas Activation
+
+Rekod keputusan sebenar, bukan keputusan jangkaan:
+
+| Pemeriksaan | Keputusan minimum |
+| --- | --- |
+| `/health` | 200 walaupun Redis gagal |
+| `/health/ready` | 200 ketika Redis tersedia; 503 ketika Redis gagal |
+| `/api/v1/health/ready` | 200 ketika Redis tersedia; 503 ketika Redis gagal |
+| Login normal | Berfungsi menggunakan akaun ujian |
+| Lima password salah | Lockout 60 saat, mesej generik, `Retry-After` integer |
+| IP limiter | Percubaan ke-16 ditolak; uji di staging jika NAT dikongsi |
+| Login selepas lockout | Counter akaun direset, bucket IP kekal |
+| Dua instance/worker | Instance kedua melihat state yang ditulis instance pertama |
+| Restart/deploy | Lockout kekal hanya jika Key Value persistence berfungsi |
+| Failure drill | Readiness dan login 503, `/health` 200, pulih selepas Redis dipulihkan |
+
+Jika hanya satu instance tersedia, nyatakan bahawa shared Redis aktif tetapi sifat multi-instance belum dibuktikan. Jalankan failure drill hanya di staging atau maintenance window. Semak log untuk `login_success`, `login_failed`, `login_rate_limit_hit`, `login_account_locked`, `login_locked_attempt`, dan `login_protection_store_unavailable`; log tidak boleh mengandungi password, token, Authorization header, Redis URL, atau email mentah.
+
+### Operasi dan Rollback
+
+Pantau connected clients, memory, latency, rejected connections, evictions, expiry, pool exhaustion, dan error count menggunakan metrics sedia ada Render. Aplikasi menggunakan satu pool bagi setiap process, maksimum 20 connection, timeout dua saat, Lua atomik, dan tidak menggunakan `KEYS` atau scan pada laluan login.
+
+Jika activation gagal, tukar `LOGIN_PROTECTION_STORE=memory` dan redeploy. Jangan padam Key Value atau `REDIS_URL` ketika rollback awal. Memory mode menghilangkan perlindungan distributed dan tidak menggunakan lockout Redis yang masih aktif; ia hanya rollback kecemasan sementara punca kegagalan disiasat.
