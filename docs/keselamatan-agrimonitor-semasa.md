@@ -2,7 +2,7 @@
 
 Tarikh semakan: 23 Julai 2026
 Skop: repository, konfigurasi deployment dalam Git, dan verifikasi awam terkawal
-Commit rujukan: `6b87600 fix(auth): replace Passlib with direct bcrypt`
+Commit deployment: `9c6f7c6 fix(auth): secure registration and admin provisioning`
 
 ## 1. Ringkasan Eksekutif
 
@@ -10,7 +10,7 @@ AgriMonitor mempunyai kawalan asas yang baik untuk sebuah MVP: password dihash d
 
 Tahap semasa belum boleh dianggap sebagai keselamatan production matang. Risiko paling penting ialah:
 
-1. pengukuhan registration/admin dalam working tree ini belum dideploy ke production;
+1. pengukuhan registration/admin telah dideploy dan disahkan melalui API awam, tetapi Render log, DB dan Render Shell belum diaudit;
 2. runtime Redis dilaporkan aktif oleh operator tetapi `render.yaml` masih menggunakan memory mode;
 3. JWT tidak mempunyai refresh-token rotation atau server-side revocation;
 4. token frontend boleh dicapai JavaScript kerana disimpan dalam `sessionStorage`;
@@ -30,8 +30,8 @@ Dokumen ini membezakan **implemented**, **configured in Git**, **verified locall
 | JWT access token | Implemented | HS256, `sub`, `role`, `exp`; default 1440 minit |
 | Server-side authorization | Implemented | Pengguna dan peranan semasa dibaca daripada DB |
 | Data ownership | Implemented dan diuji | Query rekod ditapis menggunakan `user_id` semasa |
-| Public registration role | Implemented dan diuji lokal | Sentiasa `user`; perubahan belum dideploy |
-| Operator admin provisioning | Implemented dan diuji lokal | CLI tersembunyi; tiada endpoint bootstrap |
+| Public registration role | Verified in production | Registration 201 menghasilkan `user`; privileged payload ditolak 422 |
+| Operator admin provisioning | Implemented; sebahagian verified | Modul CLI/getpass tersedia dan tiada endpoint bootstrap; Render Shell belum diuji |
 | Generic login failure | Implemented dan API production diuji | 401 tidak mendedahkan sama ada akaun wujud |
 | Anti user-enumeration timing | Implemented dan diuji | Akaun tidak wujud tetap menjalankan dummy bcrypt |
 | Login rate limit dan lockout | Implemented | 5 kegagalan akaun/5 minit; 15 percubaan IP/15 minit |
@@ -86,7 +86,7 @@ Operasi monitoring, kewangan, dashboard, cadangan dan alert menggunakan `current
 - operasi tulis harga pasaran dan import CSV memerlukan admin;
 - authorization dibuat pada backend, bukan berdasarkan paparan frontend.
 
-First-user auto-admin telah dibuang dalam working tree. Pendaftaran awam sentiasa menetapkan `user`; admin baharu hanya boleh diwujudkan oleh operator melalui `python -m app.cli.create_admin`. Kawalan ini belum dianggap aktif di production sehingga deployment dan verifikasi selesai.
+First-user auto-admin telah dibuang dan tingkah laku production disahkan pada 23 Julai 2026. Pendaftaran awam menetapkan `user`; admin baharu hanya boleh diwujudkan oleh operator melalui `python -m app.cli.create_admin`. Tiada endpoint bootstrap diterbitkan.
 
 ## 6. Perlindungan Login
 
@@ -139,10 +139,18 @@ Verifikasi awam pada 23 Julai 2026:
 
 | Ujian | Keputusan |
 | --- | --- |
-| Tiga endpoint health/readiness | 200 |
-| Satu login salah terkawal | 401, mesej generik |
-| Login sah dan `/auth/me` | Tidak dijalankan; tiada akaun ujian berautoriti |
-| Audit log Render | Tidak dapat dijalankan; tiada akses dashboard/log |
+| Tiga endpoint health/readiness selepas rollout | 200 |
+| OpenAPI public registration | `additionalProperties: false`; tiada bootstrap route |
+| Registration biasa | 201, token diterima, role `user` |
+| Privileged payload `role=admin` | 422; identiti tidak boleh login (401) |
+| Duplicate registration | 409 dengan mesej neutral |
+| Authorization user biasa | Endpoint admin menolak dengan 403 |
+| Admin sedia ada | Tidak diuji; tiada credential operator |
+| CLI production | Modul/getpass disahkan lokal; Render Shell tidak tersedia |
+| Audit DB dan log Render | Tidak dijalankan; tiada akses dashboard/log/DB |
+| `/auth/me` | Tidak dijalankan; authorization disahkan melalui admin-check 403 |
+
+Verification pertama berlaku ketika release lama masih live dan menghasilkan dua akaun ujian biasa sebelum rollout dikesan melalui OpenAPI. Identiti tidak direkod dalam dokumen; operator perlu menilai pembersihan melalui proses data yang diluluskan.
 
 HTTP 200 tidak mengenal pasti commit, runtime Python, mode Redis atau kandungan log.
 
@@ -159,9 +167,9 @@ Python 3.14 menghasilkan satu `StarletteDeprecationWarning` test-only berkaitan 
 
 ### Keutamaan tinggi
 
-1. Deploy dan verify pengukuhan public registration serta CLI admin tanpa mengubah role sedia ada.
+1. Semak dan bersihkan akaun verification sementara melalui proses operator yang diluluskan jika tidak lagi diperlukan.
 2. Sahkan environment Redis production kekal aktif walaupun Blueprint Git masih memory.
-3. Sahkan log Render, login admin/user, `/auth/me`, 403 admin route dan log sensitif.
+3. Sahkan Render log, DB role, CLI melalui Render Shell dan akses admin sedia ada tanpa mendedahkan credential.
 
 ### Keutamaan sederhana
 
