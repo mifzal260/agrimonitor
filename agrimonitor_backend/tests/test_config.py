@@ -158,3 +158,28 @@ def test_registration_rate_limit_settings_parse_and_require_positive_values() ->
     ):
         with pytest.raises(ValidationError):
             Settings(jwt_secret_key="local-test-secret", **{field: 0}, _env_file=None)
+
+def test_session_policy_rejects_unsafe_values() -> None:
+    for field in ("access_token_expire_minutes", "refresh_token_expire_days", "max_active_sessions_per_user", "session_cleanup_batch_size"):
+        with pytest.raises(ValidationError):
+            Settings(jwt_secret_key="local-test-secret", **{field: 0}, _env_file=None)
+
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", access_token_expire_minutes=20_161, refresh_token_expire_days=14, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", refresh_token_rotation_enabled=False, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", refresh_token_reuse_detection_enabled=False, _env_file=None)
+
+
+def test_production_access_token_cannot_exceed_fifteen_minutes() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            app_env="production",
+            cors_origins=["https://app.example.com"],
+            database_url="postgresql+psycopg://user:pass@db.example.com:5432/agrimonitor",
+            jwt_secret_key="x" * 40,
+            prepare_database_on_startup=False,
+            access_token_expire_minutes=16,
+            _env_file=None,
+        )

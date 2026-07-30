@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/agrimonitor"
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 1440
+    access_token_expire_minutes: int = 15
     prepare_database_on_startup: bool = True
     logging_level: str = "INFO"
     csv_max_upload_bytes: int = 1_048_576
@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     registration_email_window_seconds: int = 1_800
     registration_max_attempts_per_ip: int = 10
     registration_ip_window_seconds: int = 3_600
+    refresh_token_expire_days: int = 14
+    refresh_token_rotation_enabled: bool = True
+    refresh_token_reuse_detection_enabled: bool = True
+    max_active_sessions_per_user: int = 10
+    session_cleanup_batch_size: int = 500
+    allow_legacy_access_tokens: bool = True
     login_protection_store: Literal["memory", "redis"] = "memory"
     login_protection_fail_mode: Literal["closed"] = "closed"
     redis_url: str | None = None
@@ -86,6 +92,9 @@ class Settings(BaseSettings):
         "redis_connect_timeout_seconds",
         "redis_health_check_interval_seconds",
         "redis_max_connections",
+        "refresh_token_expire_days",
+        "max_active_sessions_per_user",
+        "session_cleanup_batch_size",
     )
     @classmethod
     def require_positive_number(cls, value: int | float) -> int | float:
@@ -114,6 +123,18 @@ class Settings(BaseSettings):
         if self.login_protection_store == "redis" and not (self.redis_url or "").strip():
             raise ValueError("REDIS_URL is required when LOGIN_PROTECTION_STORE=redis")
         return self
+
+    @model_validator(mode="after")
+    def validate_session_policy(self) -> "Settings":
+        if self.refresh_token_expire_days * 1_440 <= self.access_token_expire_minutes:
+            raise ValueError("REFRESH_TOKEN_EXPIRE_DAYS must outlive the access token")
+        if self.app_env in {"production", "prod"} and self.access_token_expire_minutes > 15:
+            raise ValueError("ACCESS_TOKEN_EXPIRE_MINUTES cannot exceed 15 in production")
+        protections_enabled = self.refresh_token_rotation_enabled and self.refresh_token_reuse_detection_enabled
+        if not protections_enabled:
+            raise ValueError("Refresh token rotation and reuse detection cannot be disabled")
+        return self
+
 
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":

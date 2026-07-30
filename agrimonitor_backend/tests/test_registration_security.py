@@ -5,6 +5,7 @@ from threading import Barrier
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from starlette.requests import Request
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -235,6 +236,7 @@ def test_concurrent_public_registrations_never_create_admin(tmp_path) -> None:
                 UserCreate(name=f"User {index}", email=f"concurrent-{index}@example.com", password="password123"),
                 context,
                 service,
+                Request({"type": "http", "method": "POST", "path": "/register", "headers": []}),
             )
             return result.user.role
         finally:
@@ -275,6 +277,7 @@ def test_concurrent_duplicate_registration_has_one_success_and_one_controlled_du
                 UserCreate(name=f"User {index}", email="same@example.com", password="password123"),
                 context,
                 service,
+                Request({"type": "http", "method": "POST", "path": "/register", "headers": []}),
             )
             return "success"
         except HTTPException as exc:

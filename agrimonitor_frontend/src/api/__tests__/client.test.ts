@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { clearToken, getToken, setToken } from "../../auth/authStorage";
+import { clearToken, getRefreshToken, getToken, setAuthTokens, setToken } from "../../auth/authStorage";
 import { ApiError, apiRequest, resetUnauthorizedHandler } from "../client";
 
 function mockFetch(status: number, body: unknown = { detail: "Request failed" }, headers = new Headers()) {
@@ -80,4 +80,55 @@ describe("api client 401 handling", () => {
     expect(listener).toHaveBeenCalledTimes(2);
     window.removeEventListener("agrimonitor:session-expired", listener);
   });
-});
+
+  it("single-flights concurrent refreshes and stores rotated tokens", async () => {
+    setAuthTokens("expired-access", "initial-refresh");
+    let refreshCalls = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const authorization = new Headers(init?.headers).get("Authorization");
+      if (String(input).endsWith("/auth/refresh")) {
+        refreshCalls += 1;
+        return { ok: true, status: 200, headers: new Headers(), json: vi.fn().mockResolvedValue({ access_token: "rotated-access", refresh_token: "rotated-refresh", token_type: "bearer", expires_in: 900, refresh_expires_in: 1209600, user: { id: 1, name: "Farmer", email: "farmer@example.com", role: "user" } }) } as unknown as Response;
+      }
+      if (authorization === "Bearer expired-access") {
+        return { ok: false, status: 401, headers: new Headers(), json: vi.fn().mockResolvedValue({ detail: "Expired" }) } as unknown as Response;
+      }
+      return { ok: true, status: 200, headers: new Headers(), json: vi.fn().mockResolvedValue({ ok: true }) } as unknown as Response;
+    });
+
+    await Promise.all([apiRequest("/private-a"), apiRequest("/private-b")]);
+    expect(refreshCalls).toBe(1);
+    expect(getToken()).toBe("rotated-access");
+    expect(getRefreshToken()).toBe("rotated-refresh");
+  });
+
+  it("clears both tokens when refresh is rejected", async () => {
+    setAuthTokens("expired-access", "replayed-refresh");
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, headers: new Headers(), json: vi.fn().mockResolvedValue({ detail: "Expired" }) } as unknown as Response)
+      .mockResolvedValueOnce({ ok: false, status: 401, headers: new Headers(), json: vi.fn().mockResolvedValue({ detail: "Sesi tidak sah" }) } as unknown as Response);
+    await expect(apiRequest("/private")).rejects.toThrow("Sesi tidak sah");
+    expect(getToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+  });
+  it("does not restore a stale refresh response after local logout", async () => {
+    setAuthTokens("expired-access", "refresh-before-logout");
+    let resolveRefresh: (response: Response) => void = () => undefined;
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, headers: new Headers(), json: vi.fn().mockResolvedValue({ detail: "Expired" }) } as unknown as Response)
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveRefresh = resolve; }));
+
+    const pending = apiRequest("/private");
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    clearToken();
+    resolveRefresh({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: vi.fn().mockResolvedValue({ access_token: "stale-access", refresh_token: "stale-refresh" }),
+    } as unknown as Response);
+
+    await expect(pending).rejects.toThrow("Session changed during refresh");
+    expect(getToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+  });});

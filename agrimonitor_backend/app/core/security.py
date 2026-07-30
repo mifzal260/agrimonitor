@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -46,13 +50,32 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(subject: str, role: str) -> str:
-    expires_at = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
-    payload = {"sub": subject, "role": role, "exp": expires_at}
+def create_access_token(subject: str, session_id: str) -> str:
+    issued_at = datetime.now(UTC)
+    expires_at = issued_at + timedelta(minutes=settings.access_token_expire_minutes)
+    payload = {
+        "sub": subject,
+        "iat": issued_at,
+        "exp": expires_at,
+        "jti": uuid.uuid4().hex,
+        "session_id": session_id,
+    }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> dict[str, str]:
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def refresh_token_hash_matches(token: str, expected_hash: str) -> bool:
+    return hmac.compare_digest(hash_refresh_token(token), expected_hash)
+
+
+def decode_access_token(token: str) -> dict[str, object]:
     try:
         return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError as exc:

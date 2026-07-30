@@ -2,9 +2,9 @@ import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
-import { getMe } from "./api/auth";
+import { getMe, logout } from "./api/auth";
 import { resetUnauthorizedHandler } from "./api/client";
-import { authSessionExpiredEvent, clearToken, migrateLegacyToken, setToken } from "./auth/authStorage";
+import { authSessionExpiredEvent, clearToken, migrateLegacyToken, setAuthTokens } from "./auth/authStorage";
 import { LanguageSwitcher } from "./components/common/LanguageSwitcher";
 import { StatusBadge } from "./components/StatusBadge";
 import { AuthPage } from "./features/auth/AuthPage";
@@ -43,7 +43,9 @@ function App() {
     },
     {
       label: t("navigation.farm"),
-      items: [{ path: "/monitoring", label: t("navigation.cropMonitoring"), shortLabel: t("navigation.cropMonitoringShort"), description: t("navigation.cropMonitoringDescription"), badge: t("navigation.dashboardShort") }],
+      items: [
+        { path: "/monitoring", label: t("navigation.cropMonitoring"), shortLabel: t("navigation.cropMonitoringShort"), description: t("navigation.cropMonitoringDescription"), badge: t("navigation.dashboardShort") },
+      ],
     },
     {
       label: t("navigation.business"),
@@ -95,14 +97,14 @@ function App() {
   }, [location.pathname, navigate]);
 
   function handleAuthenticated(response: AuthResponse) {
-    if (!response.access_token || !response.user) {
+    if (!response.access_token || !response.refresh_token || !response.user) {
       clearToken();
       setTokenState(null);
       setUser(null);
       throw new Error(t("auth.authenticationFailed"));
     }
 
-    setToken(response.access_token);
+    setAuthTokens(response.access_token, response.refresh_token);
     resetUnauthorizedHandler();
     setTokenState(response.access_token);
     setUser(response.user);
@@ -110,13 +112,17 @@ function App() {
     navigate(nextPath, { replace: true });
   }
 
-  function handleLogout() {
-    clearToken();
-    resetUnauthorizedHandler();
-    setTokenState(null);
-    setUser(null);
-    setIsUserMenuOpen(false);
-    navigate("/login", { replace: true });
+  async function handleLogout() {
+    try {
+      await logout();
+    } finally {
+      clearToken();
+      resetUnauthorizedHandler();
+      setTokenState(null);
+      setUser(null);
+      setIsUserMenuOpen(false);
+      navigate("/login", { replace: true });
+    }
   }
 
   return (
@@ -273,7 +279,7 @@ function ProtectedAppShell({
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label={t("navigation.mobileNavigation")}>
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col gap-1 border-t border-slate-200 bg-white p-2 shadow-[0_-4px_16px_rgba(15,23,42,0.08)] md:hidden" aria-label={t("navigation.mobileNavigation")}>
         {navigationItems.map((item) => (
           <MobileNavLink key={item.path} item={item} />
         ))}

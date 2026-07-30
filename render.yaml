@@ -19,6 +19,20 @@ services:
         sync: false
       - key: CORS_ORIGINS
         value: https://agrimonitor-frontend.onrender.com
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 15
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 14
+      - key: REFRESH_TOKEN_ROTATION_ENABLED
+        value: true
+      - key: REFRESH_TOKEN_REUSE_DETECTION_ENABLED
+        value: true
+      - key: MAX_ACTIVE_SESSIONS_PER_USER
+        value: 10
+      - key: SESSION_CLEANUP_BATCH_SIZE
+        value: 500
+      - key: ALLOW_LEGACY_ACCESS_TOKENS
+        value: true
       - key: REGISTRATION_RATE_LIMIT_ENABLED
         value: true
       - key: REGISTRATION_MAX_ATTEMPTS_PER_EMAIL

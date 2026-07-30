@@ -1,7 +1,15 @@
-import { clearToken, getToken, notifySessionExpired } from "../auth/authStorage";
+import {
+  clearToken,
+  getRefreshToken,
+  getToken,
+  notifySessionExpired,
+  setAuthTokens,
+} from "../auth/authStorage";
 import { buildApiUrl } from "../config/api";
+import type { AuthResponse } from "../types/auth";
 
 let hasHandledUnauthorized = false;
+let refreshPromise: Promise<string> | null = null;
 
 export class ApiError extends Error {
   status: number;
@@ -59,7 +67,51 @@ function parseRetryAfter(headers: Headers) {
   return Math.max(1, Math.ceil((retryDate - Date.now()) / 1000));
 }
 
-export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+function canRefresh(path: string) {
+  return !["/auth/login", "/auth/register", "/auth/refresh"].includes(path);
+}
+
+async function performRefresh() {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) throw new ApiError("Session refresh unavailable", 401);
+
+  const response = await fetch(buildApiUrl("/auth/refresh"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const body = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(formatApiError(body), response.status, parseRetryAfter(response.headers));
+  }
+
+  if (getRefreshToken() !== refreshToken) {
+    throw new ApiError("Session changed during refresh", 401);
+  }
+
+  const refreshed = body as Partial<AuthResponse>;
+  if (!refreshed.access_token || !refreshed.refresh_token) {
+    throw new ApiError("Invalid refresh response", 401);
+  }
+  setAuthTokens(refreshed.access_token, refreshed.refresh_token);
+  hasHandledUnauthorized = false;
+  return refreshed.access_token;
+}
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = performRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  hasRetried = false,
+): Promise<T> {
   const headers = new Headers(options.headers);
   const token = getToken();
 
@@ -78,8 +130,27 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
-    if (response.status === 401) handleUnauthorized();
-    throw new ApiError(formatApiError(errorBody), response.status, parseRetryAfter(response.headers));
+    const requestError = new ApiError(
+      formatApiError(errorBody),
+      response.status,
+      parseRetryAfter(response.headers),
+    );
+
+    if (response.status === 401 && !hasRetried && canRefresh(path) && getRefreshToken()) {
+      try {
+        const newAccessToken = await refreshAccessToken();
+        const retryHeaders = new Headers(options.headers);
+        retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
+        return apiRequest<T>(path, { ...options, headers: retryHeaders }, true);
+      } catch (refreshError) {
+        if (!(refreshError instanceof ApiError) || refreshError.status !== 401) throw refreshError;
+        handleUnauthorized();
+        throw refreshError;
+      }
+    }
+
+    if (response.status === 401 && canRefresh(path)) handleUnauthorized();
+    throw requestError;
   }
 
   if (response.status === 204) return null as T;

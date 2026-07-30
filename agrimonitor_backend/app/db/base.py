@@ -1,6 +1,7 @@
 from app.db.database import Base
 from app.models.alert import Alert
 from app.models.activity import Activity
+from app.models.auth_session import AuthRefreshToken, AuthSession
 from app.models.cost import Cost
 from app.models.crop import Crop
 from app.models.disease_rule import DiseaseRule, DiseaseRuleSymptom
@@ -14,6 +15,8 @@ from app.models.user import User
 __all__ = [
     "Activity",
     "Alert",
+    "AuthRefreshToken",
+    "AuthSession",
     "Base",
     "Cost",
     "Crop",

@@ -15,3 +15,4 @@ class User(TimestampMixin, Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False, default="user")
 
     planting_records = relationship("PlantingRecord", back_populates="user")
+    auth_sessions = relationship("AuthSession", back_populates="user", cascade="all, delete-orphan")

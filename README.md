@@ -101,6 +101,7 @@ http://localhost:5173
 /api/v1/finance
 ```
 
+
 ## Render + Neon Deployment
 
 See:
@@ -114,6 +115,8 @@ A starter `render.yaml` is included at the project root.
 ## Security Notes
 
 Current security controls, production verification status, and residual risks are documented in [`docs/keselamatan-agrimonitor-semasa.md`](docs/keselamatan-agrimonitor-semasa.md).
+
+Rotating refresh tokens, server-side session revocation, rollout order, cleanup, rollback, and incident response are documented in [docs/auth-session-lifecycle.md](docs/auth-session-lifecycle.md).
 
 - Do not commit `.env` files.
 - Do not hardcode real secrets.

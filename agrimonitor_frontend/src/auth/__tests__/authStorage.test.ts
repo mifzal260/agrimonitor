@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { clearToken, getToken, isAuthenticated, setToken } from "../authStorage";
+import { clearToken, getRefreshToken, getToken, isAuthenticated, setAuthTokens, setToken } from "../authStorage";
 
 const tokenKey = "agrimonitor_access_token";
 
@@ -41,4 +41,13 @@ describe("authStorage", () => {
     expect(isAuthenticated()).toBe(false);
     expect(localStorage.getItem(tokenKey)).toBeNull();
   });
-});
+
+  it("stores both tokens only in sessionStorage and clears them together", () => {
+    setAuthTokens("access-123", "refresh-456");
+    expect(getToken()).toBe("access-123");
+    expect(getRefreshToken()).toBe("refresh-456");
+    expect(localStorage.length).toBe(0);
+    clearToken();
+    expect(getToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+  });});

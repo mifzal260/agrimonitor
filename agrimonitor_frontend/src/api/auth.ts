@@ -12,6 +12,11 @@ export type LoginPayload = {
   password: string;
 };
 
+export type ChangePasswordPayload = {
+  current_password: string;
+  new_password: string;
+};
+
 export function register(payload: RegisterPayload) {
   return apiRequest<AuthResponse>("/auth/register", {
     method: "POST",
@@ -21,6 +26,21 @@ export function register(payload: RegisterPayload) {
 
 export function login(payload: LoginPayload) {
   return apiRequest<AuthResponse>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function logout() {
+  return apiRequest<void>("/auth/logout", { method: "POST" });
+}
+
+export function logoutAll() {
+  return apiRequest<void>("/auth/logout-all", { method: "POST" });
+}
+
+export function changePassword(payload: ChangePasswordPayload) {
+  return apiRequest<void>("/auth/change-password", {
     method: "POST",
     body: JSON.stringify(payload),
   });

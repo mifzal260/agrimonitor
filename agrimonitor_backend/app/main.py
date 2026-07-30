@@ -17,6 +17,7 @@ from app.db import base as _models
 from app.db.database import get_db
 from app.db.startup import prepare_database
 from app.services.login_protection import LoginProtectionStoreUnavailable, build_login_protection_service
+from app.services.session_service import GENERIC_REFRESH_ERROR
 
 logging.basicConfig(level=getattr(logging, settings.logging_level.upper(), logging.INFO))
 logger = logging.getLogger("agrimonitor")
@@ -71,6 +72,11 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+        if request.url.path == f"{settings.api_prefix}/auth/refresh":
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": GENERIC_REFRESH_ERROR},
+            )
         if request.url.path == f"{settings.api_prefix}/auth/register":
             privileged_names = {
                 "role",

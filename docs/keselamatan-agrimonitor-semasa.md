@@ -2,7 +2,7 @@
 
 Tarikh semakan: 23 Julai 2026
 Skop: repository, konfigurasi deployment dalam Git, dan verifikasi awam terkawal
-Commit deployment: `9c6f7c6 fix(auth): secure registration and admin provisioning`
+Basis repository: `4f4deb2 docs(auth): record registration security deployment`; perubahan sesi semasa belum di-commit atau deploy.
 
 ## 1. Ringkasan Eksekutif
 
@@ -12,7 +12,7 @@ Tahap semasa belum boleh dianggap sebagai keselamatan production matang. Risiko 
 
 1. pengukuhan registration/admin telah dideploy dan disahkan melalui API awam, tetapi Render log, DB dan Render Shell belum diaudit;
 2. runtime Redis dilaporkan aktif oleh operator tetapi `render.yaml` masih menggunakan memory mode;
-3. JWT tidak mempunyai refresh-token rotation atau server-side revocation;
+3. refresh-token rotation dan server-side revocation kini implemented/verified lokal tetapi belum diaktifkan atau disahkan di production;
 4. token frontend boleh dicapai JavaScript kerana disimpan dalam `sessionStorage`;
 5. MFA, CAPTCHA, WAF dan security-header policy khusus belum tersedia;
 6. dependency transitif `ecdsa 0.19.2` mempunyai advisori `PYSEC-2026-1325`;
@@ -27,7 +27,7 @@ Dokumen ini membezakan **implemented**, **configured in Git**, **verified locall
 | Direct bcrypt password hashing | Implemented dan diuji | `bcrypt 5.x`, `$2b$`, cost 12 |
 | Polisi password | Implemented | Minimum 8 aksara; maksimum 72 byte UTF-8 |
 | Keserasian hash lama | Diuji secara lokal | Fixture `$2a$`, `$2b$` dan cost 10 lulus |
-| JWT access token | Implemented | HS256, `sub`, `role`, `exp`; default 1440 minit |
+| JWT access token | Implemented dan diuji lokal | HS256, `sub`, `iat`, `exp`, `jti`, `session_id`; default 15 minit; tiada role/email |
 | Server-side authorization | Implemented | Pengguna dan peranan semasa dibaca daripada DB |
 | Data ownership | Implemented dan diuji | Query rekod ditapis menggunakan `user_id` semasa |
 | Public registration role | Verified in production | Registration 201 menghasilkan `user`; privileged payload ditolak 422 |
@@ -42,7 +42,7 @@ Dokumen ini membezakan **implemented**, **configured in Git**, **verified locall
 | Security logging | Implemented | Event login tanpa password/token; log production belum diaudit |
 | Frontend token storage | Risiko diterima | `sessionStorage`; masih boleh dicapai jika berlaku XSS |
 | MFA/CAPTCHA/WAF | Belum | Memerlukan fasa keselamatan berasingan |
-| Session revocation | Belum | JWT sah sehingga `exp` kecuali secret diputar |
+| Session rotation/revocation | Implemented dan diuji lokal; belum production | Opaque refresh hash DB, rotation/replay detection, logout/logout-all/password revoke |
 
 ## 3. Autentikasi dan Password
 
@@ -66,17 +66,15 @@ Akaun tidak wujud tetap melalui dummy bcrypt verification. Security event menggu
 
 ## 4. JWT dan Sesi
 
-Access token HS256 mengandungi `sub`, `role` dan `exp`. Backend mengesahkan token, membaca ID pengguna dan mendapatkan semula pengguna daripada DB. Pemeriksaan admin menggunakan peranan semasa daripada rekod DB, bukan hanya tuntutan role token.
+Access token HS256 kini hidup 15 minit dan mengandungi `sub`, `iat`, `exp`, `jti` serta `session_id`; role/email tidak dibawa. Backend mendapatkan pengguna dan role semasa daripada DB. Opaque refresh token 384-bit berputar pada setiap penggunaan dan hanya SHA-256 disimpan dalam jadual sesi/token. Replay token lama merevoke seluruh session chain.
 
-Had semasa:
+Endpoint tersedia secara lokal: `/auth/refresh`, `/auth/logout`, `/auth/logout-all` dan `/auth/change-password`. Password change merevoke semua refresh sessions. Access token yang telah dikeluarkan tidak diblacklist dan boleh kekal sah sehingga maksimum 15 minit selepas revocation.
 
-- tiada refresh token atau rotation;
-- tiada logout/revocation server-side;
-- tiada senarai token yang dibatalkan;
-- putaran `JWT_SECRET_KEY` membatalkan semua token.
+Frontend menyimpan kedua-dua token dalam `sessionStorage` sementara dan tidak menyimpan refresh token dalam `localStorage`. API client menggunakan satu single-flight refresh, retry request asal sekali dan membersihkan sesi jika refresh ditolak. Pilihan ini mengehadkan persistence tetapi masih terdedah kepada XSS; CSP ialah fasa seterusnya. Cross-site HttpOnly cookie ditangguhkan sehingga CORS, credential mode, SameSite, CSRF dan sekatan third-party cookie diaudit.
 
-Frontend menyimpan token dalam `sessionStorage` dan membuang salinan legacy daripada `localStorage`. Persistence lebih terhad, tetapi token masih terdedah jika berlaku XSS. Aplikasi tidak menggunakan cookie autentikasi, maka risiko CSRF berasaskan cookie berkurang; ini bukan pengganti kawalan XSS.
+`ALLOW_LEGACY_ACCESS_TOKENS=true` membenarkan JWT lama tanpa `session_id` semasa rollout. Ia perlu dimatikan dalam release berasingan selepas token lama tamat. Reka bentuk, cleanup, deployment dan rollback penuh berada dalam `docs/auth-session-lifecycle.md`.
 
+Status kawalan ini ialah implemented dan verified lokal sahaja. Tiada migration production, push atau deployment dibuat dalam fasa kerja semasa.
 ## 5. Authorization dan Pemilikan Data
 
 Operasi monitoring, kewangan, dashboard, cadangan dan alert menggunakan `current_user.id` pada query backend.
@@ -173,7 +171,7 @@ Python 3.14 menghasilkan satu `StarletteDeprecationWarning` test-only berkaitan 
 
 ### Keutamaan sederhana
 
-1. Tambah refresh-token rotation, session revocation dan MFA admin.
+1. Deploy dan verify refresh-token rotation/session revocation mengikut migration-first runbook; MFA admin kekal fasa berasingan.
 2. Tambah CSP, security headers dan WAF/edge rate limiting.
 3. Nilai migrasi password kepada Argon2id dengan rehash semasa login.
 4. Tetapkan retention dan akses security log.

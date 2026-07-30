@@ -29,7 +29,7 @@ describe("AuthPage login protection UI", () => {
     await user.click(screen.getByRole("button", { name: /log masuk|login/i }));
 
     expect(screen.getByRole("button", { name: /sila tunggu|please wait/i })).toBeDisabled();
-    resolveLogin({ access_token: "token", token_type: "bearer", user: { id: 1, name: "Farmer", email: "farmer@example.com", role: "user" } });
+    resolveLogin({ access_token: "token", refresh_token: "refresh", expires_in: 900, refresh_expires_in: 1209600, token_type: "bearer", user: { id: 1, name: "Farmer", email: "farmer@example.com", role: "user" } });
   });
 
   it("shows a generic message for invalid login", async () => {
@@ -95,6 +95,9 @@ describe("AuthPage login protection UI", () => {
     resolveRegistration({
       access_token: "token",
       token_type: "bearer",
+      refresh_token: "refresh",
+      expires_in: 900,
+      refresh_expires_in: 1209600,
       user: { id: 1, name: "Farmer", email: "farmer@example.com", role: "user" },
     });
   });

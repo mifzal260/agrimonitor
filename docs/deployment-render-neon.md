@@ -43,7 +43,13 @@ API_PREFIX=/api/v1
 DATABASE_URL=<Neon SQLAlchemy connection string>
 JWT_SECRET_KEY=<strong random secret>
 JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=14
+REFRESH_TOKEN_ROTATION_ENABLED=true
+REFRESH_TOKEN_REUSE_DETECTION_ENABLED=true
+MAX_ACTIVE_SESSIONS_PER_USER=10
+SESSION_CLEANUP_BATCH_SIZE=500
+ALLOW_LEGACY_ACCESS_TOKENS=true
 CORS_ORIGINS=<frontend render URL>
 PREPARE_DATABASE_ON_STARTUP=false
 LOGIN_RATE_LIMIT_ENABLED=true
@@ -56,7 +62,7 @@ LOGIN_LOCKOUT_MAX_SECONDS=1800
 TRUSTED_PROXY_IPS=<comma-separated trusted proxy IPs, leave empty if none>
 ```
 
-After backend deployment, run database migration from Render shell or a one-off job:
+Before the new backend receives traffic, run the database migration from Render shell or a one-off job:
 
 ```bash
 alembic upgrade head
@@ -270,3 +276,9 @@ Rollback:
 - uji readiness, registration user, login dan authorization selepas pemulihan.
 
 Butiran lengkap: `docs/admin-provisioning-registration-security.md`.
+
+## 8. Rotating Auth Session Rollout
+
+Rujuk `docs/auth-session-lifecycle.md` untuk seni bina penuh. Migration sesi mesti mendahului backend dan frontend. Deploy backend dengan `ALLOW_LEGACY_ACCESS_TOKENS=true`, smoke-test login/refresh/logout, kemudian deploy frontend. Matikan compatibility token lama hanya dalam release kemudian selepas token lama tamat. Jalankan `python -m app.cli.cleanup_auth_sessions` secara berkala menggunakan cron/operator sedia ada.
+
+Rollback aplikasi boleh mengekalkan jadual sesi. `alembic downgrade -1` memadam semua sesi dan hanya boleh dibuat selepas backend baharu dihentikan. Blueprint ini tidak mengaktifkan deployment dengan sendirinya dan kekal menetapkan `LOGIN_PROTECTION_STORE=memory`; jangan gunakan perubahan sesi ini untuk menukar Redis production.
