@@ -4,7 +4,7 @@ import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "reac
 
 import { getMe, logout } from "./api/auth";
 import { resetUnauthorizedHandler } from "./api/client";
-import { authSessionExpiredEvent, clearToken, migrateLegacyToken, setAuthTokens } from "./auth/authStorage";
+import { authSessionExpiredEvent, clearToken, migrateLegacyToken, setAuthTokens, setToken } from "./auth/authStorage";
 import { LanguageSwitcher } from "./components/common/LanguageSwitcher";
 import { StatusBadge } from "./components/StatusBadge";
 import { AuthPage } from "./features/auth/AuthPage";
@@ -99,14 +99,19 @@ function App() {
   }, [location.pathname, navigate]);
 
   function handleAuthenticated(response: AuthResponse) {
-    if (!response.access_token || !response.refresh_token || !response.user) {
+    if (!response.access_token || !response.user) {
       clearToken();
       setTokenState(null);
       setUser(null);
       throw new Error(t("auth.authenticationFailed"));
     }
 
-    setAuthTokens(response.access_token, response.refresh_token);
+    if (response.refresh_token) {
+      setAuthTokens(response.access_token, response.refresh_token);
+    } else {
+      clearToken();
+      setToken(response.access_token);
+    }
     resetUnauthorizedHandler();
     setTokenState(response.access_token);
     setUser(response.user);
