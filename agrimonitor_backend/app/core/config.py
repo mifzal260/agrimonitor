@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     redis_health_check_interval_seconds: int = 30
     redis_max_connections: int = 20
     trusted_proxy_ips: Annotated[list[str], NoDecode] = []
+    iot_data_mode: str = "simulation"
+    iot_online_after_seconds: int = 600
+    iot_offline_after_seconds: int = 3600
+    iot_temperature_warning_celsius: int = 35
+    iot_soil_moisture_warning_percent: int = 30
+    iot_battery_warning_percent: int = 20
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -69,7 +75,7 @@ class Settings(BaseSettings):
             return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
 
-    @field_validator("app_env", "logging_level", mode="before")
+    @field_validator("app_env", "logging_level", "iot_data_mode", mode="before")
     @classmethod
     def normalize_lowercase_fields(cls, value: str) -> str:
         return value.strip().lower()
@@ -95,6 +101,11 @@ class Settings(BaseSettings):
         "refresh_token_expire_days",
         "max_active_sessions_per_user",
         "session_cleanup_batch_size",
+        "iot_online_after_seconds",
+        "iot_offline_after_seconds",
+        "iot_temperature_warning_celsius",
+        "iot_soil_moisture_warning_percent",
+        "iot_battery_warning_percent",
     )
     @classmethod
     def require_positive_number(cls, value: int | float) -> int | float:
@@ -135,6 +146,13 @@ class Settings(BaseSettings):
             raise ValueError("Refresh token rotation and reuse detection cannot be disabled")
         return self
 
+    @model_validator(mode="after")
+    def validate_iot_settings(self) -> "Settings":
+        if self.iot_data_mode not in {"simulation", "iot"}:
+            raise ValueError("IOT_DATA_MODE must be simulation or iot")
+        if self.iot_offline_after_seconds <= self.iot_online_after_seconds:
+            raise ValueError("IOT_OFFLINE_AFTER_SECONDS must be greater than IOT_ONLINE_AFTER_SECONDS")
+        return self
 
     @model_validator(mode="after")
     def validate_production_safety(self) -> "Settings":

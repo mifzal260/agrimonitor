@@ -44,7 +44,10 @@
     "financeShort": "Kewangan",
     "financeDescription": "Kos, hasil tuaian, dan untung/rugi",
     "mainNavigation": "Navigasi utama",
-    "mobileNavigation": "Navigasi mudah alih"
+    "mobileNavigation": "Navigasi mudah alih",
+    "iotMonitoring": "Pemantauan IoT",
+    "iotMonitoringShort": "IoT",
+    "iotMonitoringDescription": "Sensor simulasi, peranti dan amaran"
   },
   "header": {
     "checkingSession": "Menyemak sesi...",
@@ -327,5 +330,55 @@
     "symptomUpdated": "Rekod masalah tanaman berjaya dikemaskini.",
     "symptomResolved": "Masalah tanaman berjaya ditandakan selesai.",
     "symptomDeleted": "Rekod masalah tanaman berjaya dipadam."
+  },
+  "iot": {
+    "title": "Pemantauan IoT",
+    "simulationMode": "Mod Simulasi",
+    "simulationDescription": "Pantau bacaan sensor simulasi untuk suhu, kelembapan udara, kelembapan tanah, cahaya dan bateri. Modul ini belum disambungkan kepada perkakasan sebenar.",
+    "loading": "Memuatkan data sensor simulasi...",
+    "errorState": "Data sensor tidak dapat dimuatkan",
+    "refreshError": "Bacaan terkini gagal dikemas kini. Data terakhir masih dipaparkan.",
+    "updatedAt": "Dikemas kini",
+    "refreshing": "sedang mengemas kini",
+    "temperature": "Suhu",
+    "humidity": "Kelembapan udara",
+    "soilMoisture": "Kelembapan tanah",
+    "lightIntensity": "Keamatan cahaya",
+    "batteryLevel": "Tahap bateri",
+    "deviceStatus": "Status peranti",
+    "warning": "Perlu perhatian",
+    "normal": "Normal",
+    "historyTitle": "Sejarah bacaan sensor",
+    "historyDescription": "Bacaan dikemas kini secara simulasi setiap 10 saat tanpa permintaan bertindih.",
+    "simulatedRealtime": "Simulasi semasa",
+    "noReading": "Tiada bacaan",
+    "emptyState": "Tiada data sensor untuk dipaparkan.",
+    "deviceInfo": "Maklumat peranti",
+    "deviceId": "ID peranti",
+    "deviceName": "Nama peranti",
+    "location": "Lokasi",
+    "dataSource": "Sumber data",
+    "connectionStatus": "Status sambungan",
+    "lastReading": "Bacaan terakhir",
+    "alerts": "Amaran sensor",
+    "noAlerts": "Tiada amaran sensor aktif.",
+    "status": {
+      "online": "Dalam talian",
+      "offline": "Luar talian",
+      "warning": "Amaran"
+    },
+    "source": {
+      "simulation": "Simulasi",
+      "iot": "IoT sebenar",
+      "manual": "Manual"
+    },
+    "metric": {
+      "temperature": "Suhu",
+      "humidity": "Kelembapan udara",
+      "soil_moisture": "Kelembapan tanah",
+      "light_intensity": "Keamatan cahaya",
+      "battery_level": "Tahap bateri",
+      "connection": "Sambungan"
+    }
   }
 }

@@ -44,7 +44,10 @@
     "financeShort": "Finance",
     "financeDescription": "Costs, harvests, and profit/loss",
     "mainNavigation": "Main navigation",
-    "mobileNavigation": "Mobile navigation"
+    "mobileNavigation": "Mobile navigation",
+    "iotMonitoring": "IoT Monitoring",
+    "iotMonitoringShort": "IoT",
+    "iotMonitoringDescription": "Simulated sensors, devices, and alerts"
   },
   "header": {
     "checkingSession": "Checking session...",
@@ -327,5 +330,55 @@
     "symptomUpdated": "Crop issue record updated successfully.",
     "symptomResolved": "Crop issue marked as resolved.",
     "symptomDeleted": "Crop issue record deleted successfully."
+  },
+  "iot": {
+    "title": "IoT Monitoring",
+    "simulationMode": "Simulation Mode",
+    "simulationDescription": "Monitor simulated sensor readings for temperature, humidity, soil moisture, light, and battery level. This module is not connected to real hardware yet.",
+    "loading": "Loading simulated sensor data...",
+    "errorState": "Sensor data could not be loaded",
+    "refreshError": "Latest reading could not be refreshed. Last available data is still shown.",
+    "updatedAt": "Updated at",
+    "refreshing": "refreshing",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "soilMoisture": "Soil moisture",
+    "lightIntensity": "Light intensity",
+    "batteryLevel": "Battery level",
+    "deviceStatus": "Device status",
+    "warning": "Needs attention",
+    "normal": "Normal",
+    "historyTitle": "Sensor reading history",
+    "historyDescription": "Readings refresh through simulation every 10 seconds without overlapping requests.",
+    "simulatedRealtime": "Simulation stream",
+    "noReading": "No reading",
+    "emptyState": "No sensor data to display.",
+    "deviceInfo": "Device information",
+    "deviceId": "Device ID",
+    "deviceName": "Device name",
+    "location": "Location",
+    "dataSource": "Data source",
+    "connectionStatus": "Connection status",
+    "lastReading": "Last reading",
+    "alerts": "Sensor alerts",
+    "noAlerts": "No active sensor alerts.",
+    "status": {
+      "online": "Online",
+      "offline": "Offline",
+      "warning": "Warning"
+    },
+    "source": {
+      "simulation": "Simulation",
+      "iot": "Real IoT",
+      "manual": "Manual"
+    },
+    "metric": {
+      "temperature": "Temperature",
+      "humidity": "Humidity",
+      "soil_moisture": "Soil moisture",
+      "light_intensity": "Light intensity",
+      "battery_level": "Battery level",
+      "connection": "Connection"
+    }
   }
 }

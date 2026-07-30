@@ -19,12 +19,13 @@ Implemented:
 - Market prices with filters and CSV import.
 - Dashboard summary and Recharts price graph.
 - Cost, harvest, revenue, and profit/loss tracking.
+- IoT monitoring dashboard in simulation mode.
 - Render + Neon deployment notes.
 
 Not included in MVP:
 
 - AI diagnosis.
-- IoT/hardware integration.
+- Real IoT/hardware integration.
 - External market APIs.
 - Paid services beyond optional hosting/database choices.
 
@@ -99,8 +100,35 @@ http://localhost:5173
 /api/v1/market-prices
 /api/v1/dashboard
 /api/v1/finance
+/api/v1/monitoring/devices
+/api/v1/monitoring/sensors/latest
+/api/v1/monitoring/sensors/history
+/api/v1/monitoring/simulation/generate
 ```
 
+## IoT Monitoring Simulation Mode
+
+The IoT monitoring dashboard currently runs in simulation mode. It creates one demo device and synthetic sensor readings for temperature, humidity, soil moisture, light intensity, and battery level. No hardware gateway or external IoT API is required.
+
+Useful backend settings:
+
+```text
+IOT_DATA_MODE=simulation
+IOT_ONLINE_AFTER_SECONDS=600
+IOT_OFFLINE_AFTER_SECONDS=3600
+IOT_TEMPERATURE_WARNING_CELSIUS=35
+IOT_SOIL_MOISTURE_WARNING_PERCENT=30
+IOT_BATTERY_WARNING_PERCENT=20
+```
+
+Run the database migration before using this module:
+
+```bash
+cd agrimonitor_backend
+alembic upgrade head
+```
+
+See [docs/iot-monitoring-simulation.md](docs/iot-monitoring-simulation.md) for endpoint and deployment notes.
 
 ## Render + Neon Deployment
 

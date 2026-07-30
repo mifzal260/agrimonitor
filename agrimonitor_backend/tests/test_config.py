@@ -183,3 +183,38 @@ def test_production_access_token_cannot_exceed_fifteen_minutes() -> None:
             access_token_expire_minutes=16,
             _env_file=None,
         )
+
+
+def test_iot_settings_parse_and_require_safe_values() -> None:
+    settings = Settings(
+        jwt_secret_key="local-test-secret",
+        iot_data_mode="SIMULATION",
+        iot_online_after_seconds="300",
+        iot_offline_after_seconds="900",
+        iot_temperature_warning_celsius="34",
+        iot_soil_moisture_warning_percent="25",
+        iot_battery_warning_percent="15",
+        _env_file=None,
+    )
+
+    assert settings.iot_data_mode == "simulation"
+    assert settings.iot_online_after_seconds == 300
+    assert settings.iot_offline_after_seconds == 900
+    assert settings.iot_temperature_warning_celsius == 34
+    assert settings.iot_soil_moisture_warning_percent == 25
+    assert settings.iot_battery_warning_percent == 15
+
+    for field in (
+        "iot_online_after_seconds",
+        "iot_offline_after_seconds",
+        "iot_temperature_warning_celsius",
+        "iot_soil_moisture_warning_percent",
+        "iot_battery_warning_percent",
+    ):
+        with pytest.raises(ValidationError):
+            Settings(jwt_secret_key="local-test-secret", **{field: 0}, _env_file=None)
+
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", iot_data_mode="external", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", iot_online_after_seconds=900, iot_offline_after_seconds=300, _env_file=None)

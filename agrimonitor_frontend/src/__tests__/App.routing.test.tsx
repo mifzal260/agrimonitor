@@ -26,6 +26,10 @@ vi.mock("../features/market-prices/MarketPricePage", () => ({
   MarketPricePage: () => <div>Market prices page mock</div>,
 }));
 
+vi.mock("../features/iot-monitoring/IotMonitoringPage", () => ({
+  IotMonitoringPage: () => <div>IoT monitoring page mock</div>,
+}));
+
 vi.mock("../features/finance/FinancePage", () => ({
   FinancePage: () => <div>Finance page mock</div>,
 }));
@@ -67,6 +71,7 @@ describe("App routing", () => {
   it.each([
     ["/monitoring", "Monitoring page mock"],
     ["/market-prices", "Market prices page mock"],
+    ["/iot-monitoring", "IoT monitoring page mock"],
     ["/finance", "Finance page mock"],
   ])("opens protected route %s with token", async (route, expectedText) => {
     setToken("valid-token");
