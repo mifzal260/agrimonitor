@@ -60,7 +60,11 @@ services:
       - key: REDIS_MAX_CONNECTIONS
         value: 20
       - key: OLLAMA_BASE_URL
+        value: https://ollama.com
+      - key: OLLAMA_API_KEY
         sync: false
+      - key: OLLAMA_MODEL
+        value: beam
 
   - type: web
     name: agrimonitor-frontend

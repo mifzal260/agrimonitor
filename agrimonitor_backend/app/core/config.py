@@ -52,9 +52,9 @@ class Settings(BaseSettings):
     iot_temperature_warning_celsius: int = 35
     iot_soil_moisture_warning_percent: int = 30
     iot_battery_warning_percent: int = 20
-    ollama_base_url: str = "http://localhost:11434"
+    ollama_base_url: str = "https://ollama.com"
     ollama_api_key: str | None = None
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "beam"
     ollama_temperature: float = 0.4
     ollama_num_ctx: int = 4096
     ollama_num_predict: int = 400

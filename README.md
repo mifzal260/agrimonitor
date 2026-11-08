@@ -143,7 +143,7 @@ A starter `render.yaml` is included at the project root.
 
 ## AI Agriculture Assistant
 
-The authenticated `/agri-chat` page streams Malay or English answers from Ollama. Configure `OLLAMA_BASE_URL` and, if required by the protected Ollama endpoint, `OLLAMA_API_KEY`; the model is selected with `OLLAMA_MODEL` (default `qwen2.5:7b`). See [docs/ai-agriculture-chat.md](docs/ai-agriculture-chat.md) for local and Render setup.
+The authenticated `/agri-chat` page streams Malay or English answers from Ollama Cloud. Configure `OLLAMA_API_KEY` with your Ollama Cloud key; `OLLAMA_BASE_URL` defaults to `https://ollama.com` and `OLLAMA_MODEL` to `beam`. See [docs/ai-agriculture-chat.md](docs/ai-agriculture-chat.md) for development and Render setup.
 
 ## Security Notes
 
