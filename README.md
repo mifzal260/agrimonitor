@@ -20,11 +20,12 @@ Implemented:
 - Dashboard summary and Recharts price graph.
 - Cost, harvest, revenue, and profit/loss tracking.
 - IoT monitoring dashboard in simulation mode.
+- Streaming AI agriculture assistant powered by a configured Ollama server.
 - Render + Neon deployment notes.
 
 Not included in MVP:
 
-- AI diagnosis.
+- AI image diagnosis.
 - Real IoT/hardware integration.
 - External market APIs.
 - Paid services beyond optional hosting/database choices.
@@ -139,6 +140,10 @@ docs/deployment-render-neon.md
 ```
 
 A starter `render.yaml` is included at the project root.
+
+## AI Agriculture Assistant
+
+The authenticated `/agri-chat` page streams Malay or English answers from Ollama. Configure `OLLAMA_BASE_URL` and, if required by the protected Ollama endpoint, `OLLAMA_API_KEY`; the model is selected with `OLLAMA_MODEL` (default `qwen2.5:7b`). See [docs/ai-agriculture-chat.md](docs/ai-agriculture-chat.md) for local and Render setup.
 
 ## Security Notes
 

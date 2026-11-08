@@ -47,7 +47,10 @@
     "mobileNavigation": "Navigasi mudah alih",
     "iotMonitoring": "Pemantauan IoT",
     "iotMonitoringShort": "IoT",
-    "iotMonitoringDescription": "Sensor simulasi, peranti dan amaran"
+    "iotMonitoringDescription": "Sensor simulasi, peranti dan amaran",
+    "agriAssistant": "Pembantu Pertanian AI",
+    "agriAssistantShort": "AI Agri",
+    "agriAssistantDescription": "Tanya tentang tanaman, baja dan perosak"
   },
   "header": {
     "checkingSession": "Menyemak sesi...",
@@ -77,6 +80,24 @@
     "registrationTooManyAttempts": "Terlalu banyak percubaan pendaftaran. Sila cuba sebentar lagi.",
     "registrationTooManyAttemptsWithRetry": "Terlalu banyak percubaan pendaftaran. Sila cuba semula dalam {{seconds}} saat.",
     "registrationServiceUnavailable": "Perkhidmatan pendaftaran tidak tersedia buat sementara waktu. Sila cuba lagi."
+  },
+  "agriChat": {
+    "title": "Pembantu Pertanian AI",
+    "description": "Panduan pertanian praktikal untuk tanaman dan ternakan ringan di Malaysia.",
+    "newConversation": "Perbualan baharu",
+    "checkingStatus": "Menyemak sambungan pembantu AI...",
+    "ready": "Pembantu AI sedia menggunakan model {{model}}.",
+    "statusUnavailable": "Perkhidmatan AI tidak tersedia. Sila cuba lagi kemudian.",
+    "welcome": "Tanya soalan tentang tanaman, penyakit, perosak, baja, penyiraman atau amalan pertanian. Untuk diagnosis lebih tepat, sertakan jenis tanaman, umur dan gejala.",
+    "question1": "Daun cili saya kuning, kenapa?",
+    "question2": "Jadual baja padi",
+    "question3": "Cara kawal ulat bulu",
+    "thinking": "Sedang menjawab...",
+    "replyFailed": "Jawapan tidak dapat diterima. Sila cuba lagi.",
+    "messageLabel": "Mesej kepada pembantu pertanian",
+    "placeholder": "Taip soalan pertanian anda...",
+    "sending": "Menjawab...",
+    "send": "Hantar"
   },
   "dashboard": {
     "title": "Papan Pemuka",

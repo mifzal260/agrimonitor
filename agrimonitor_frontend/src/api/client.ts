@@ -157,6 +157,48 @@ export async function apiRequest<T>(
   return response.json() as Promise<T>;
 }
 
+export async function apiStreamRequest(
+  path: string,
+  options: RequestInit = {},
+  hasRetried = false,
+): Promise<Response> {
+  const headers = new Headers(options.headers);
+  const token = getToken();
+
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(buildApiUrl(path), { ...options, headers });
+  if (response.ok) return response;
+
+  const errorBody = await response.json().catch(() => null);
+  const requestError = new ApiError(
+    formatApiError(errorBody),
+    response.status,
+    parseRetryAfter(response.headers),
+  );
+
+  if (response.status === 401 && !hasRetried && canRefresh(path) && getRefreshToken()) {
+    try {
+      const newAccessToken = await refreshAccessToken();
+      const retryHeaders = new Headers(options.headers);
+      retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
+      return apiStreamRequest(path, { ...options, headers: retryHeaders }, true);
+    } catch (refreshError) {
+      if (!(refreshError instanceof ApiError) || refreshError.status !== 401) throw refreshError;
+      handleUnauthorized();
+      throw refreshError;
+    }
+  }
+
+  if (response.status === 401 && canRefresh(path)) handleUnauthorized();
+  throw requestError;
+}
+
 export async function getHealthStatus() {
   return apiRequest<{ status: string }>("/health");
 }

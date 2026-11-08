@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clearToken, getRefreshToken, getToken, setAuthTokens, setToken } from "../../auth/authStorage";
-import { ApiError, apiRequest, resetUnauthorizedHandler } from "../client";
+import { ApiError, apiRequest, apiStreamRequest, resetUnauthorizedHandler } from "../client";
 
 function mockFetch(status: number, body: unknown = { detail: "Request failed" }, headers = new Headers()) {
   globalThis.fetch = vi.fn().mockResolvedValue({
@@ -132,3 +132,27 @@ describe("api client 401 handling", () => {
     expect(getToken()).toBeNull();
     expect(getRefreshToken()).toBeNull();
   });});
+
+describe("streaming API requests", () => {
+  beforeEach(() => {
+    clearToken();
+    resetUnauthorizedHandler();
+    vi.unstubAllGlobals();
+  });
+
+  it("adds the current bearer token to a streaming request", async () => {
+    setToken("stream-token");
+    const response = {
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      body: {} as ReadableStream<Uint8Array>,
+    } as Response;
+    globalThis.fetch = vi.fn().mockResolvedValue(response);
+
+    await expect(apiStreamRequest("/agri-chat/chat", { method: "POST" })).resolves.toBe(response);
+
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer stream-token");
+  });
+});

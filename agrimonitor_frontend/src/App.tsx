@@ -15,8 +15,9 @@ const MonitoringPage = lazy(() => import("./features/monitoring/MonitoringPage")
 const IotMonitoringPage = lazy(() => import("./features/iot-monitoring/IotMonitoringPage").then((module) => ({ default: module.IotMonitoringPage })));
 const MarketPricePage = lazy(() => import("./features/market-prices/MarketPricePage").then((module) => ({ default: module.MarketPricePage })));
 const FinancePage = lazy(() => import("./features/finance/FinancePage").then((module) => ({ default: module.FinancePage })));
+const AgriChatPage = lazy(() => import("./features/agri-chat/AgriChatPage").then((module) => ({ default: module.AgriChatPage })));
 
-type AppRoute = "/dashboard" | "/monitoring" | "/iot-monitoring" | "/market-prices" | "/finance";
+type AppRoute = "/dashboard" | "/monitoring" | "/iot-monitoring" | "/market-prices" | "/finance" | "/agri-chat";
 
 type NavigationItem = {
   path: AppRoute;
@@ -47,6 +48,7 @@ function App() {
       items: [
         { path: "/monitoring", label: t("navigation.cropMonitoring"), shortLabel: t("navigation.cropMonitoringShort"), description: t("navigation.cropMonitoringDescription"), badge: t("navigation.dashboardShort") },
         { path: "/iot-monitoring", label: t("navigation.iotMonitoring"), shortLabel: t("navigation.iotMonitoringShort"), description: t("navigation.iotMonitoringDescription"), badge: "IoT" },
+        { path: "/agri-chat", label: t("navigation.agriAssistant"), shortLabel: t("navigation.agriAssistantShort"), description: t("navigation.agriAssistantDescription"), badge: "AI" },
       ],
     },
     {
@@ -179,6 +181,14 @@ function App() {
         element={
           <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <FinancePage token={token ?? ""} />
+          </ProtectedAppShell>
+        }
+      />
+      <Route
+        path="/agri-chat"
+        element={
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+            <AgriChatPage />
           </ProtectedAppShell>
         }
       />
@@ -351,8 +361,7 @@ function getRedirectPath(state: unknown): AppRoute {
 }
 
 function isAppRoute(value: unknown): value is AppRoute {
-  return value === "/dashboard" || value === "/monitoring" || value === "/iot-monitoring" || value === "/market-prices" || value === "/finance";
+  return value === "/dashboard" || value === "/monitoring" || value === "/iot-monitoring" || value === "/market-prices" || value === "/finance" || value === "/agri-chat";
 }
 
 export default App;
-

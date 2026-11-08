@@ -218,3 +218,26 @@ def test_iot_settings_parse_and_require_safe_values() -> None:
         Settings(jwt_secret_key="local-test-secret", iot_data_mode="external", _env_file=None)
     with pytest.raises(ValidationError):
         Settings(jwt_secret_key="local-test-secret", iot_online_after_seconds=900, iot_offline_after_seconds=300, _env_file=None)
+
+
+def test_ollama_settings_are_configurable_and_validated() -> None:
+    settings = Settings(
+        jwt_secret_key="local-test-secret",
+        ollama_base_url="https://ollama.example.com/",
+        ollama_model="llama3.1:8b",
+        ollama_temperature="0.5",
+        ollama_num_ctx="4096",
+        ollama_num_predict="300",
+        _env_file=None,
+    )
+
+    assert settings.ollama_base_url == "https://ollama.example.com"
+    assert settings.ollama_model == "llama3.1:8b"
+    assert settings.ollama_temperature == 0.5
+    assert settings.ollama_num_ctx == 4096
+    assert settings.ollama_num_predict == 300
+
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", ollama_base_url="ollama.example.com", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(jwt_secret_key="local-test-secret", ollama_temperature=1.1, _env_file=None)

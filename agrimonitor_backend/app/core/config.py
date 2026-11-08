@@ -1,5 +1,6 @@
 import re
 from typing import Annotated, Literal
+from urllib.parse import urlsplit
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -51,6 +52,12 @@ class Settings(BaseSettings):
     iot_temperature_warning_celsius: int = 35
     iot_soil_moisture_warning_percent: int = 30
     iot_battery_warning_percent: int = 20
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_api_key: str | None = None
+    ollama_model: str = "qwen2.5:7b"
+    ollama_temperature: float = 0.4
+    ollama_num_ctx: int = 4096
+    ollama_num_predict: int = 400
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -106,11 +113,51 @@ class Settings(BaseSettings):
         "iot_temperature_warning_celsius",
         "iot_soil_moisture_warning_percent",
         "iot_battery_warning_percent",
+        "ollama_num_ctx",
+        "ollama_num_predict",
     )
     @classmethod
     def require_positive_number(cls, value: int | float) -> int | float:
         if value <= 0:
             raise ValueError("must be greater than 0")
+        return value
+
+    @field_validator("ollama_base_url")
+    @classmethod
+    def normalize_ollama_base_url(cls, value: str) -> str:
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
+            raise ValueError("OLLAMA_BASE_URL must be a valid HTTP(S) base URL without credentials")
+        return normalized
+
+    @field_validator("ollama_api_key", mode="before")
+    @classmethod
+    def normalize_ollama_api_key(cls, value: str | None) -> str | None:
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+    @field_validator("ollama_model")
+    @classmethod
+    def require_ollama_model(cls, value: str) -> str:
+        model = value.strip()
+        if not model:
+            raise ValueError("OLLAMA_MODEL cannot be empty")
+        return model
+
+    @field_validator("ollama_temperature")
+    @classmethod
+    def validate_ollama_temperature(cls, value: float) -> float:
+        if not 0 <= value <= 1:
+            raise ValueError("OLLAMA_TEMPERATURE must be between 0 and 1")
         return value
 
     @field_validator("redis_key_prefix")

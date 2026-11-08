@@ -47,7 +47,10 @@
     "mobileNavigation": "Mobile navigation",
     "iotMonitoring": "IoT Monitoring",
     "iotMonitoringShort": "IoT",
-    "iotMonitoringDescription": "Simulated sensors, devices, and alerts"
+    "iotMonitoringDescription": "Simulated sensors, devices, and alerts",
+    "agriAssistant": "AI Agriculture Assistant",
+    "agriAssistantShort": "AI Agri",
+    "agriAssistantDescription": "Ask about crops, fertilizer, and pests"
   },
   "header": {
     "checkingSession": "Checking session...",
@@ -77,6 +80,24 @@
     "registrationTooManyAttempts": "Too many registration attempts. Please try again later.",
     "registrationTooManyAttemptsWithRetry": "Too many registration attempts. Please try again in {{seconds}} seconds.",
     "registrationServiceUnavailable": "The registration service is temporarily unavailable. Please try again."
+  },
+  "agriChat": {
+    "title": "AI Agriculture Assistant",
+    "description": "Practical agricultural guidance for crops and small-scale livestock in Malaysia.",
+    "newConversation": "New conversation",
+    "checkingStatus": "Checking AI assistant connection...",
+    "ready": "AI assistant is ready with model {{model}}.",
+    "statusUnavailable": "The AI service is unavailable. Please try again later.",
+    "welcome": "Ask about crops, diseases, pests, fertilizer, irrigation, or farming practices. For a better diagnosis, include the crop, its age, and symptoms.",
+    "question1": "Why are my chili leaves yellow?",
+    "question2": "Rice fertilizer schedule",
+    "question3": "How do I control caterpillars?",
+    "thinking": "Thinking...",
+    "replyFailed": "The response could not be received. Please try again.",
+    "messageLabel": "Message the agriculture assistant",
+    "placeholder": "Type your farming question...",
+    "sending": "Replying...",
+    "send": "Send"
   },
   "dashboard": {
     "title": "Dashboard",
