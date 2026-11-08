@@ -92,6 +92,7 @@ async def stream_chat_response(
         "model": settings.ollama_model,
         "messages": ollama_messages,
         "stream": True,
+        "think": False,
         "options": {
             "temperature": settings.ollama_temperature,
             "num_ctx": settings.ollama_num_ctx,
@@ -101,6 +102,8 @@ async def stream_chat_response(
 
     try:
         timeout = httpx.Timeout(connect=8, read=180, write=30, pool=8)
+        received_content = False
+        completed = False
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST",
@@ -120,9 +123,15 @@ async def stream_chat_response(
                     message = chunk.get("message")
                     content = message.get("content", "") if isinstance(message, dict) else ""
                     if content:
+                        received_content = True
                         yield content
                     if chunk.get("done"):
-                        return
+                        completed = True
+                        break
+        if not completed:
+            raise ValueError("Ollama stream ended before completion")
+        if not received_content:
+            raise ValueError("Ollama returned an empty response")
     except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
         logger.warning("ollama_chat_stream_failed", exc_info=True)
         raise RuntimeError(

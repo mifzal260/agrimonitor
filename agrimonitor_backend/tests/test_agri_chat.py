@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.schemas.agri_chat import AgriChatMessage
@@ -123,11 +124,55 @@ def test_ollama_stream_uses_only_latest_ten_messages_and_limits_output(monkeypat
     assert len(captured_payload["messages"]) == 11
     assert captured_payload["messages"][0]["role"] == "system"
     assert captured_payload["messages"][1]["content"] == "Soalan 2"
+    assert captured_payload["think"] is False
     assert captured_payload["options"] == {
         "temperature": agri_chat.settings.ollama_temperature,
         "num_ctx": agri_chat.settings.ollama_num_ctx,
         "num_predict": agri_chat.settings.ollama_num_predict,
     }
+
+
+@pytest.mark.parametrize(
+    "chunks",
+    [
+        [json.dumps({"done": True})],
+        [json.dumps({"message": {"content": "Partial answer"}, "done": False})],
+    ],
+)
+def test_ollama_stream_rejects_empty_or_incomplete_response(monkeypatch, chunks) -> None:
+    class FakeResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_lines(self):
+            for chunk in chunks:
+                yield chunk
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(agri_chat.httpx, "AsyncClient", lambda **_kwargs: FakeClient())
+
+    async def collect():
+        return [chunk async for chunk in agri_chat.stream_chat_response(
+            [AgriChatMessage(role="user", content="Soalan ujian")]
+        )]
+
+    with pytest.raises(RuntimeError, match="response was interrupted"):
+        asyncio.run(collect())
 
 
 def _async_result(value):
