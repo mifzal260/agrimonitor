@@ -5,5 +5,5 @@ export function capitalizeCropWords(value: string) {
 }
 
 export function isSelectableCropName(name: string) {
-  return name.trim().toLocaleLowerCase() !== "nenas";
+  return !["nanas", "nenas"].includes(name.trim().toLocaleLowerCase());
 }

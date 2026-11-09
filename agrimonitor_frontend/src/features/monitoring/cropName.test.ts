@@ -15,9 +15,11 @@ describe("capitalizeCropWords", () => {
     expect(capitalizeCropWords("café arabica")).toBe("Café Arabica");
   });
 
-  it("excludes Nenas from the planting crop options regardless of casing", () => {
+  it("excludes both pineapple spellings regardless of casing", () => {
+    expect(isSelectableCropName("Nanas")).toBe(false);
+    expect(isSelectableCropName(" nAnAs ")).toBe(false);
     expect(isSelectableCropName("Nenas")).toBe(false);
     expect(isSelectableCropName(" nEnAs ")).toBe(false);
-    expect(isSelectableCropName("Nanas")).toBe(true);
+    expect(isSelectableCropName("Timun")).toBe(true);
   });
 });
