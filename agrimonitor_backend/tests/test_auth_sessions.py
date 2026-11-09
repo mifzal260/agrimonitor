@@ -89,11 +89,66 @@ def test_logout_is_idempotent_and_logout_all_revokes_every_device(client: TestCl
     first = register(client)
     second = login(client)
     assert client.post("/api/v1/auth/logout", headers=bearer(first["access_token"])).status_code == 204
+    assert client.get("/api/v1/auth/me", headers=bearer(first["access_token"])).status_code == 401
     assert client.post("/api/v1/auth/logout", headers=bearer(first["access_token"])).status_code == 204
     assert refresh(client, first["refresh_token"]).status_code == 401
 
     assert client.post("/api/v1/auth/logout-all", headers=bearer(second["access_token"])).status_code == 204
     assert refresh(client, second["refresh_token"]).status_code == 401
+
+
+def test_revoking_one_session_does_not_invalidate_another_session_for_same_user(
+    client: TestClient,
+) -> None:
+    first = register(client)
+    second = login(client)
+
+    revoked = client.post("/api/v1/auth/logout", headers=bearer(first["access_token"]))
+
+    assert revoked.status_code == 204
+    assert client.get("/api/v1/auth/me", headers=bearer(first["access_token"])).status_code == 401
+    assert client.get("/api/v1/auth/me", headers=bearer(second["access_token"])).status_code == 200
+
+
+def test_expired_session_access_token_is_rejected(
+    client: TestClient,
+    db_session: Session,
+) -> None:
+    tokens = register(client)
+    auth_session = db_session.scalar(select(AuthSession))
+    assert auth_session is not None
+    auth_session.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+    db_session.commit()
+
+    response = client.get("/api/v1/auth/me", headers=bearer(tokens["access_token"]))
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def test_access_token_cannot_use_another_users_session(
+    client: TestClient,
+) -> None:
+    first = register(client)
+    second_response = client.post(
+        "/api/v1/auth/register",
+        json={"name": "Other Session Farmer", "email": "other-session@example.com", "password": "password123"},
+    )
+    assert second_response.status_code == 201
+    second_payload = decode_access_token(second_response.json()["access_token"])
+    mismatched_token = jwt.encode(
+        {
+            "sub": str(first["user"]["id"]),
+            "session_id": second_payload["session_id"],
+            "exp": datetime.now(UTC) + timedelta(minutes=5),
+        },
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
+
+    response = client.get("/api/v1/auth/me", headers=bearer(mismatched_token))
+
+    assert response.status_code == 401
 
 
 def test_password_change_revokes_sessions_and_wrong_password_does_not(client: TestClient) -> None:
@@ -118,13 +173,26 @@ def test_max_sessions_revokes_oldest(client: TestClient, monkeypatch) -> None:
     assert refresh(client, third["refresh_token"]).status_code == 200
 
 
-def test_legacy_access_token_rollout_flag(client: TestClient, monkeypatch) -> None:
+def test_legacy_access_token_rollout_flag(client: TestClient, monkeypatch, caplog) -> None:
     registered = register(client)
     legacy = jwt.encode({"sub": str(registered["user"]["id"]), "exp": datetime.now(UTC) + timedelta(minutes=5)}, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     monkeypatch.setattr(settings, "allow_legacy_access_tokens", True)
     assert client.get("/api/v1/auth/me", headers=bearer(legacy)).status_code == 200
+    assert "legacy_access_token_accepted" in caplog.text
     monkeypatch.setattr(settings, "allow_legacy_access_tokens", False)
     assert client.get("/api/v1/auth/me", headers=bearer(legacy)).status_code == 401
+
+
+def test_session_lookup_columns_are_indexed() -> None:
+    primary_key_columns = set(AuthSession.__table__.primary_key.columns.keys())
+    indexed_columns = {
+        column.name
+        for index in AuthSession.__table__.indexes
+        for column in index.columns
+    }
+
+    assert "id" in primary_key_columns
+    assert "user_id" in indexed_columns
 
 
 def test_cleanup_is_batched_and_idempotent(client: TestClient, db_session: Session) -> None:

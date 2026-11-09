@@ -5,6 +5,7 @@ from starlette.requests import Request
 from app.core.dependencies import (
     AuthenticatedUser,
     get_authenticated_user,
+    get_authenticated_user_for_logout,
     get_current_user,
     require_admin,
 )
@@ -60,7 +61,7 @@ def refresh(request: Request, payload: RefreshTokenRequest, db: Session = Depend
 def logout(
     request: Request,
     db: Session = Depends(get_db),
-    authenticated: AuthenticatedUser = Depends(get_authenticated_user),
+    authenticated: AuthenticatedUser = Depends(get_authenticated_user_for_logout),
 ) -> Response:
     revoke_session(db, authenticated.user.id, authenticated.session_id, request)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

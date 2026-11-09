@@ -29,6 +29,27 @@ def as_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
+def is_session_active(db: Session, user_id: int, session_id: str) -> bool:
+    try:
+        return (
+            db.scalar(
+                select(AuthSession.id).where(
+                    AuthSession.id == session_id,
+                    AuthSession.user_id == user_id,
+                    AuthSession.revoked_at.is_(None),
+                    AuthSession.expires_at > utc_now(),
+                )
+            )
+            is not None
+        )
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=SESSION_STORE_UNAVAILABLE_ERROR,
+        ) from exc
+
+
 def create_session_tokens(
     db: Session,
     user: User,
