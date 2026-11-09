@@ -143,7 +143,7 @@
     "matched": "Matched",
     "addPlantingRecord": "Add planting record",
     "selectCrop": "Select crop",
-    "otherCrop": "Other crop (not listed)",
+    "otherCrop": "Other",
     "otherCropName": "Crop name",
     "otherCropNamePlaceholder": "Enter crop name",
     "otherCropHelp": "This crop will be added to the shared catalog for all users.",
