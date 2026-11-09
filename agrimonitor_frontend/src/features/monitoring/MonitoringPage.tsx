@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { createActivity, createCrop, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
+import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ListDisplayControls } from "../../components/common/ListDisplayControls";
-import { capitalizeCropWords, isSelectableCropName } from "./cropName";
+import { capitalizeCropWords, getPlantingCropName, isSelectableCropName } from "./cropName";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
 import type { Alert, RecommendationResult } from "../../types/recommendation";
 import { formatCurrency, formatDateShort, toCurrencyNumber } from "../../utils/localeFormat";
@@ -129,16 +129,15 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
     setIsSavingPlanting(true);
     try {
-      const crop = plantingForm.crop_id === "other"
-        ? await createCrop(token, plantingForm.new_crop_name.trim())
-        : crops.find((item) => item.id.toString() === plantingForm.crop_id);
-      if (!crop) {
+      const isCustomCrop = plantingForm.crop_id === "other";
+      const crop = isCustomCrop ? null : crops.find((item) => item.id.toString() === plantingForm.crop_id);
+      if (!isCustomCrop && !crop) {
         setError(t("cropMonitoring.selectCrop"));
         return;
       }
-      setCrops((currentCrops) => currentCrops.some((item) => item.id === crop.id) ? currentCrops : [...currentCrops, crop].sort((a, b) => a.name.localeCompare(b.name)));
       const savedRecord = await createPlantingRecord(token, {
-        crop_id: crop.id,
+        crop_id: crop?.id ?? null,
+        custom_crop_name: isCustomCrop ? capitalizeCropWords(plantingForm.new_crop_name).trim() : null,
         field_name: plantingForm.field_name.trim(),
         planting_date: plantingForm.planting_date,
         area_size: areaSize,
@@ -156,7 +155,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   }
 
 
-  async function handleUpdatePlantingRecord(recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) {
+  async function handleUpdatePlantingRecord(recordId: number, form: { crop_id: string; new_crop_name: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) {
     setError("");
     setSuccessMessage("");
     const areaSize = normalizeDecimalInput(form.area_size);
@@ -164,9 +163,15 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       setError(t("validation.invalidAreaSize"));
       return;
     }
+    const isCustomCrop = form.crop_id === "other";
+    if (isCustomCrop && form.new_crop_name.trim().length < 2) {
+      setError(t("cropMonitoring.otherCropName"));
+      return;
+    }
     try {
       const updated = await updatePlantingRecord(token, recordId, {
-        crop_id: Number(form.crop_id),
+        crop_id: isCustomCrop ? null : Number(form.crop_id),
+        custom_crop_name: isCustomCrop ? capitalizeCropWords(form.new_crop_name).trim() : null,
         field_name: form.field_name.trim(),
         planting_date: form.planting_date,
         area_size: areaSize,
@@ -355,7 +360,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           </div>
           <StatusBadge label={`${records.length} ${t("dashboard.plots").toLowerCase()}`} tone="success" />
         </div>
-        {latestRecord && <p className="mt-3 text-sm text-slate-700">{t("cropMonitoring.latest")}: {latestRecord.crop.name} - {latestRecord.field_name}, {latestRecord.plant_age_days} HST.</p>}
+        {latestRecord && <p className="mt-3 text-sm text-slate-700">{t("cropMonitoring.latest")}: {getPlantingCropName(latestRecord)} - {latestRecord.field_name}, {latestRecord.plant_age_days} HST.</p>}
       </section>
 
       {alerts.length > 0 && (
@@ -455,17 +460,17 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   );
 }
 
-function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: PlantingRecord[]; crops: Crop[]; onUpdate: (recordId: number, form: { crop_id: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) => Promise<void>; onDelete: (recordId: number) => Promise<void> }) {
+function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: PlantingRecord[]; crops: Crop[]; onUpdate: (recordId: number, form: { crop_id: string; new_crop_name: string; field_name: string; planting_date: string; area_size: string; status: string; notes: string }) => Promise<void>; onDelete: (recordId: number) => Promise<void> }) {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
+  const [editForm, setEditForm] = useState({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   function startEdit(record: PlantingRecord) {
     setOpenMenuId(null);
     setEditingId(record.id);
-    setEditForm({ crop_id: String(record.crop_id), field_name: record.field_name, planting_date: record.planting_date, area_size: record.area_size ?? "", status: record.status, notes: record.notes ?? "" });
+    setEditForm({ crop_id: record.crop_id === null ? "other" : String(record.crop_id), new_crop_name: record.custom_crop_name ?? "", field_name: record.field_name, planting_date: record.planting_date, area_size: record.area_size ?? "", status: record.status, notes: record.notes ?? "" });
   }
 
   async function submitEdit(event: React.FormEvent<HTMLFormElement>) {
@@ -498,8 +503,9 @@ function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: P
               {editingId === record.id ? (
                 <form onSubmit={submitEdit} className="space-y-2">
                   <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={editForm.crop_id} onChange={(event) => setEditForm({ ...editForm, crop_id: event.target.value })} required>
-                    <option value="">{t("cropMonitoring.selectCrop")}</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
+                    <option value="">{t("cropMonitoring.selectCrop")}</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}<option value="other">{t("cropMonitoring.otherCrop")}</option>
                   </select>
+                  {editForm.crop_id === "other" && <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" maxLength={120} minLength={2} placeholder={t("cropMonitoring.otherCropNamePlaceholder")} value={editForm.new_crop_name} onChange={(event) => setEditForm({ ...editForm, new_crop_name: capitalizeCropWords(event.target.value) })} required />}
                   <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" placeholder={t("cropMonitoring.plotName")} value={editForm.field_name} onChange={(event) => setEditForm({ ...editForm, field_name: event.target.value })} required />
                   <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" type="date" value={editForm.planting_date} onChange={(event) => setEditForm({ ...editForm, planting_date: event.target.value })} required />
                   <input className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" inputMode="decimal" placeholder={t("cropMonitoring.areaSize")} value={editForm.area_size} onChange={(event) => setEditForm({ ...editForm, area_size: event.target.value })} />
@@ -515,7 +521,7 @@ function PlantingRecordList({ records, crops, onUpdate, onDelete }: { records: P
               ) : (
                 <>
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0"><h3 className="truncate font-semibold">{record.field_name}</h3><p className="mt-2 text-sm text-slate-700">{record.crop.name}</p></div>
+                    <div className="min-w-0"><h3 className="truncate font-semibold">{record.field_name}</h3><p className="mt-2 text-sm text-slate-700">{getPlantingCropName(record)}</p></div>
                     <div className="relative flex shrink-0 items-center gap-2">
                       <StatusBadge label={plantStatusLabel(record.status, t)} tone={plantStatusTone(record.status)} />
                       <button className="neo-icon-button inline-flex h-8 w-8 items-center justify-center text-base font-bold leading-none text-slate-500" type="button" aria-label={t("cropMonitoring.openPlantingMenu")} onClick={() => setOpenMenuId(openMenuId === record.id ? null : record.id)}>...</button>
@@ -543,7 +549,7 @@ function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage 
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <h3 className="font-semibold">{t("cropMonitoring.recordActivity")}</h3>
       <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required>
-        <option value="">{t("cropMonitoring.selectPlot")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}
+        <option value="">{t("cropMonitoring.selectPlot")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>)}
       </select>
       <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.activityType")} value={form.activity_type} onChange={(event) => setForm({ ...form, activity_type: event.target.value })} required />
       <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={form.activity_date} onChange={(event) => setForm({ ...form, activity_date: event.target.value })} required />
@@ -563,7 +569,7 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, sav
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
       <h3 className="font-semibold">{t("cropMonitoring.recordSymptom")}</h3>
       <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.planting_record_id} onChange={(event) => setForm({ ...form, planting_record_id: event.target.value })} required>
-        <option value="">{t("cropMonitoring.selectPlot")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>)}
+        <option value="">{t("cropMonitoring.selectPlot")}</option>{records.map((record) => <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>)}
       </select>
       <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={form.symptom_id} onChange={(event) => setForm({ ...form, symptom_id: event.target.value })} required>
         <option value="">{t("cropMonitoring.selectSymptom")}</option>{symptoms.map((symptom) => <option key={symptom.id} value={symptom.id}>{symptom.name}</option>)}
@@ -653,7 +659,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
             <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); setStatusMessage(""); }}>
               {recordsWithActivities.map((record) => (
-                <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+                <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>
               ))}
             </select>
             <div className="flex items-center gap-2">
@@ -662,7 +668,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
             </div>
           </div>
 
-          {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({selectedRecord.crop.name})</span></p>}
+          {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({getPlantingCropName(selectedRecord)})</span></p>}
 
           {selectedActivities.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">{t("cropMonitoring.noActivitiesForPlot")}</p>
@@ -804,7 +810,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
           <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
             <select className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm" value={selectedRecordId} onChange={(event) => { setSelectedRecordId(event.target.value); setEditingId(null); setOpenMenuId(null); setStatusMessage(""); }}>
               {recordsWithSymptoms.map((record) => (
-                <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+                <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>
               ))}
             </select>
             <div className="neo-toggle grid grid-cols-2 p-1 text-xs font-semibold">
@@ -819,7 +825,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
             <StatusBadge label={`${highCount} ${t("status.high")}`} tone={highCount > 0 ? "warning" : "success"} />
           </div>
 
-          {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({selectedRecord.crop.name})</span></p>}
+          {selectedRecord && <p className="mt-3 text-sm font-semibold text-slate-950">{selectedRecord.field_name} <span className="font-normal text-slate-500">({getPlantingCropName(selectedRecord)})</span></p>}
 
           {selectedSymptoms.length === 0 ? (
             <p className="mt-3 text-sm text-slate-600">Tiada rekod {statusFilter === "active" ? t("cropMonitoring.active") : t("cropMonitoring.resolved")} untuk plot ini.</p>
@@ -878,8 +884,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
-
 
 
 

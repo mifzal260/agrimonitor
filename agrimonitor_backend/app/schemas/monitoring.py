@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from app.core.enums import PlantingStatus, SymptomRecordStatus, SymptomSeverity
 
@@ -17,20 +17,6 @@ class CropRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class CropCreate(BaseModel):
-    name: str = Field(min_length=2, max_length=120)
-
-    @field_validator("name", mode="before")
-    @classmethod
-    def strip_crop_name(cls, value: Any) -> Any:
-        if not isinstance(value, str):
-            return value
-        return " ".join(
-            "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
-            for word in value.strip().split()
-        )
-
-
 class SymptomRead(BaseModel):
     id: int
     name: str
@@ -40,7 +26,8 @@ class SymptomRead(BaseModel):
 
 
 class PlantingRecordBase(BaseModel):
-    crop_id: int
+    crop_id: int | None = None
+    custom_crop_name: str | None = Field(default=None, min_length=2, max_length=120)
     field_name: str = Field(min_length=2, max_length=120)
     planting_date: date
     area_size: Decimal | None = Field(default=None, ge=0)
@@ -49,10 +36,25 @@ class PlantingRecordBase(BaseModel):
 
 
 class PlantingRecordCreate(PlantingRecordBase):
-    pass
+    @field_validator("custom_crop_name", mode="before")
+    @classmethod
+    def normalize_custom_crop_name(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return " ".join(
+            "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
+            for word in value.strip().split()
+        )
+
+    @model_validator(mode="after")
+    def require_crop_reference_or_custom_name(self) -> "PlantingRecordCreate":
+        if (self.crop_id is None) == (self.custom_crop_name is None):
+            raise ValueError("Provide either crop_id or custom_crop_name")
+        return self
 
 
 class PlantingRecordUpdate(BaseModel):
+    custom_crop_name: str | None = Field(default=None, min_length=2, max_length=120)
     crop_id: int | None = None
     field_name: str | None = Field(default=None, min_length=2, max_length=120)
     planting_date: date | None = None
@@ -60,19 +62,47 @@ class PlantingRecordUpdate(BaseModel):
     status: PlantingStatus | None = None
     notes: str | None = None
 
-    @field_validator("crop_id", "field_name", "planting_date", "status", mode="before")
+    @field_validator("field_name", "planting_date", "status", mode="before")
     @classmethod
     def reject_null_for_required_fields(cls, value: Any) -> Any:
         if value is None:
             raise ValueError("Field cannot be null")
         return value
 
+    @field_validator("custom_crop_name", mode="before")
+    @classmethod
+    def normalize_custom_crop_name(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return " ".join(
+                "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
+                for word in value.strip().split()
+            )
+        return value
+
+    @field_validator("crop_id", mode="before")
+    @classmethod
+    def require_crop_source_for_null_id(cls, value: Any, info: ValidationInfo) -> Any:
+        if value is None and not info.data.get("custom_crop_name"):
+            raise ValueError("Provide either crop_id or custom_crop_name")
+        return value
+
+    @model_validator(mode="after")
+    def require_single_crop_source(self) -> "PlantingRecordUpdate":
+        if self.crop_id is not None and self.custom_crop_name is not None:
+            raise ValueError("Provide either crop_id or custom_crop_name")
+        if (
+            "custom_crop_name" in self.model_fields_set
+            and self.custom_crop_name is None
+            and "crop_id" not in self.model_fields_set
+        ):
+            raise ValueError("Field cannot be null")
+        return self
 
 class PlantingRecordRead(PlantingRecordBase):
     id: int
     user_id: int
     plant_age_days: int
-    crop: CropRead
+    crop: CropRead | None = None
 
     model_config = {"from_attributes": True}
 

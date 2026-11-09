@@ -5,6 +5,7 @@ import { createHarvest, deleteHarvest, listHarvests, updateHarvest } from "../..
 import { listActivities, listPlantingRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
+import { getPlantingCropName } from "../monitoring/cropName";
 import { ListDisplayControls } from "../../components/common/ListDisplayControls";
 import type { Harvest } from "../../types/finance";
 import type { Activity, PlantingRecord } from "../../types/monitoring";
@@ -66,7 +67,7 @@ export function FinancePage({ token }: FinancePageProps) {
 
   const isAllRecordsSelected = selectedRecordId === ALL_RECORDS_VALUE;
   const selectedRecord = isAllRecordsSelected ? null : records.find((record) => String(record.id) === selectedRecordId) ?? null;
-  const selectedRecordLabel = isAllRecordsSelected ? t("finance.allPlotsSummary") : selectedRecord ? `${selectedRecord.field_name} - ${selectedRecord.crop.name}` : t("finance.noPlotSelected");
+  const selectedRecordLabel = isAllRecordsSelected ? t("finance.allPlotsSummary") : selectedRecord ? `${selectedRecord.field_name} - ${getPlantingCropName(selectedRecord)}` : t("finance.noPlotSelected");
   const selectedActivities = useMemo(
     () => isAllRecordsSelected ? activities : activities.filter((activity) => String(activity.planting_record_id) === selectedRecordId),
     [activities, isAllRecordsSelected, selectedRecordId],
@@ -338,7 +339,7 @@ function HarvestPlotSelect({ records, value, onChange }: { records: PlantingReco
     <select className="w-full rounded-md border border-slate-300 px-3 py-2 font-normal" value={value} onChange={(event) => onChange(event.target.value)} required>
       <option value="">{t("forms.selectPlot")}</option>
       {records.map((record) => (
-        <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+        <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>
       ))}
     </select>
   );
@@ -350,7 +351,7 @@ function PlotSelect({ records, value, onChange }: { records: PlantingRecord[]; v
       <option value="">{t("forms.selectPlot")}</option>
       <option value={ALL_RECORDS_VALUE}>{t("finance.allPlots")}</option>
       {records.map((record) => (
-        <option key={record.id} value={record.id}>{record.field_name} - {record.crop.name}</option>
+        <option key={record.id} value={record.id}>{record.field_name} - {getPlantingCropName(record)}</option>
       ))}
     </select>
   );
@@ -371,7 +372,6 @@ function toNumber(value: string | null | undefined) {
 function formatCurrency(value: string | number | null | undefined) {
   return formatLocaleCurrency(value);
 }
-
 
 
 

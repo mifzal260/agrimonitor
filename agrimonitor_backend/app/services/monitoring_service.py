@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.activity import Activity
@@ -12,7 +12,7 @@ from app.models.harvest import Harvest
 from app.models.planting_record import PlantingRecord
 from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
-from app.schemas.monitoring import ActivityCreate, ActivityUpdate, CropCreate, PlantingRecordCreate, PlantingRecordUpdate, SymptomRecordCreate, SymptomRecordUpdate
+from app.schemas.monitoring import ActivityCreate, ActivityUpdate, PlantingRecordCreate, PlantingRecordUpdate, SymptomRecordCreate, SymptomRecordUpdate
 
 
 def calculate_plant_age_days(planting_date: date) -> int:
@@ -23,21 +23,6 @@ def get_crop_or_404(db: Session, crop_id: int) -> Crop:
     crop = db.get(Crop, crop_id)
     if crop is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Crop not found")
-    return crop
-
-
-def create_crop(db: Session, payload: CropCreate) -> Crop:
-    normalized_name = payload.name.strip()
-    existing_crop = db.scalar(
-        select(Crop).where(func.lower(Crop.name) == normalized_name.lower())
-    )
-    if existing_crop is not None:
-        return existing_crop
-
-    crop = Crop(name=normalized_name)
-    db.add(crop)
-    db.commit()
-    db.refresh(crop)
     return crop
 
 
@@ -78,7 +63,8 @@ def get_owned_symptom_record(db: Session, symptom_record_id: int, user_id: int) 
 
 
 def create_planting_record(db: Session, user_id: int, payload: PlantingRecordCreate) -> PlantingRecord:
-    get_crop_or_404(db, payload.crop_id)
+    if payload.crop_id is not None:
+        get_crop_or_404(db, payload.crop_id)
     record = PlantingRecord(user_id=user_id, **payload.model_dump())
     db.add(record)
     db.commit()
@@ -90,11 +76,13 @@ def update_planting_record(db: Session, record: PlantingRecord, payload: Plantin
     data = payload.model_dump(exclude_unset=True)
     if "crop_id" in data and data["crop_id"] is not None:
         get_crop_or_404(db, data["crop_id"])
+        data["custom_crop_name"] = None
+    elif data.get("custom_crop_name") is not None:
+        data["crop_id"] = None
     for key, value in data.items():
         setattr(record, key, value)
     db.commit()
-    db.refresh(record)
-    return record
+    return get_owned_planting_record(db, record.id, record.user_id)
 
 
 

@@ -15,14 +15,15 @@ export type Symptom = {
 export type PlantingRecord = {
   id: number;
   user_id: number;
-  crop_id: number;
+  crop_id: number | null;
+  custom_crop_name: string | null;
   field_name: string;
   planting_date: string;
   area_size: string | null;
   status: string;
   notes: string | null;
   plant_age_days: number;
-  crop: Crop;
+  crop: Crop | null;
 };
 
 export type Activity = {
@@ -49,4 +50,3 @@ export type SymptomRecord = {
   resolved_at: string | null;
   symptom: Symptom;
 };
-

@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { capitalizeCropWords, isSelectableCropName } from "./cropName";
+import { capitalizeCropWords, getPlantingCropName, isSelectableCropName } from "./cropName";
 
 describe("capitalizeCropWords", () => {
   it("capitalizes the first letter of each word", () => {
     expect(capitalizeCropWords("buah naga")).toBe("Buah Naga");
+  });
+
+  describe("getPlantingCropName", () => {
+    it("uses the custom name instead of a catalog entry", () => {
+      expect(getPlantingCropName({ custom_crop_name: "Dragon Fruit", crop: null })).toBe("Dragon Fruit");
+    });
+
+    it("uses the catalog name for existing planting records", () => {
+      expect(getPlantingCropName({ custom_crop_name: null, crop: { id: 1, name: "Tomato", variety: null, description: null, expected_harvest_days: null } })).toBe("Tomato");
+    });
   });
 
   it("capitalizes words separated by hyphens and preserves other letters", () => {

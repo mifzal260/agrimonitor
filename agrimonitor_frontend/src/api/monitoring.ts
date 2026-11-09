@@ -5,13 +5,6 @@ export function listCrops(_token: string) {
   return apiRequest<Crop[]>("/monitoring/crops");
 }
 
-export function createCrop(_token: string, name: string) {
-  return apiRequest<Crop>("/monitoring/crops", {
-    method: "POST",
-    body: JSON.stringify({ name }),
-  });
-}
-
 export function listSymptoms(_token: string) {
   return apiRequest<Symptom[]>("/monitoring/symptoms");
 }
@@ -21,7 +14,8 @@ export function listPlantingRecords(_token: string) {
 }
 
 export function createPlantingRecord(_token: string, payload: {
-  crop_id: number;
+  crop_id?: number | null;
+  custom_crop_name?: string | null;
   field_name: string;
   planting_date: string;
   area_size?: string;
@@ -36,7 +30,8 @@ export function createPlantingRecord(_token: string, payload: {
 
 
 export function updatePlantingRecord(_token: string, recordId: number, payload: {
-  crop_id?: number;
+  crop_id?: number | null;
+  custom_crop_name?: string | null;
   field_name?: string;
   planting_date?: string;
   area_size?: string;
@@ -142,4 +137,3 @@ export function deleteSymptomRecord(_token: string, symptomRecordId: number) {
     method: "DELETE",
   });
 }
-

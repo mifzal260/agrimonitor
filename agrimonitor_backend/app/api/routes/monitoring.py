@@ -14,9 +14,9 @@ from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
 from app.models.user import User
 from app.schemas.iot_monitoring import IotDeviceRead, LatestSensorResponse, SensorHistoryResponse
-from app.schemas.monitoring import ActivityCreate, ActivityRead, ActivityUpdate, CropCreate, CropRead, PlantingRecordCreate, PlantingRecordRead, PlantingRecordUpdate, SymptomRead, SymptomRecordCreate, SymptomRecordRead, SymptomRecordUpdate
+from app.schemas.monitoring import ActivityCreate, ActivityRead, ActivityUpdate, CropRead, PlantingRecordCreate, PlantingRecordRead, PlantingRecordUpdate, SymptomRead, SymptomRecordCreate, SymptomRecordRead, SymptomRecordUpdate
 from app.services.iot_simulator import build_alerts, build_latest_response, get_device, get_sensor_provider, list_devices, list_sensor_history, thresholds
-from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_crop, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, sync_planting_record_status_from_symptoms, update_symptom_record
+from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, sync_planting_record_status_from_symptoms, update_symptom_record
 from app.services.recommendation_service import evaluate_planting_record
 
 router = APIRouter()
@@ -27,6 +27,7 @@ def to_planting_record_read(record: PlantingRecord) -> PlantingRecordRead:
         id=record.id,
         user_id=record.user_id,
         crop_id=record.crop_id,
+        custom_crop_name=record.custom_crop_name,
         field_name=record.field_name,
         planting_date=record.planting_date,
         area_size=record.area_size,
@@ -40,15 +41,6 @@ def to_planting_record_read(record: PlantingRecord) -> PlantingRecordRead:
 @router.get("/crops", response_model=list[CropRead])
 def list_crops(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> list[Crop]:
     return list(db.scalars(select(Crop).order_by(Crop.name)).all())
-
-
-@router.post("/crops", response_model=CropRead, status_code=status.HTTP_201_CREATED)
-def add_crop(
-    payload: CropCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> Crop:
-    return create_crop(db, payload)
 
 
 @router.get("/symptoms", response_model=list[SymptomRead])

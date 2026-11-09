@@ -28,11 +28,15 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
         for symptom_id in observed_symptom_ids
     }
 
-    rules = db.scalars(
-        select(DiseaseRule)
-        .options(selectinload(DiseaseRule.symptom_links))
-        .where(DiseaseRule.crop_id == planting_record.crop_id)
-    ).all()
+    rules = (
+        db.scalars(
+            select(DiseaseRule)
+            .options(selectinload(DiseaseRule.symptom_links))
+            .where(DiseaseRule.crop_id == planting_record.crop_id)
+        ).all()
+        if planting_record.crop_id is not None
+        else []
+    )
 
     matches: list[RecommendationMatch] = []
     highest_risk = "none"

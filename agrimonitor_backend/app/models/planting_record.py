@@ -1,7 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Numeric, String, Text
+from sqlalchemy import CheckConstraint, Date, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -10,10 +10,18 @@ from app.models.mixins import TimestampMixin
 
 class PlantingRecord(TimestampMixin, Base):
     __tablename__ = "planting_records"
+    __table_args__ = (
+        CheckConstraint(
+            "(crop_id IS NOT NULL AND custom_crop_name IS NULL) OR "
+            "(crop_id IS NULL AND custom_crop_name IS NOT NULL)",
+            name="ck_planting_record_crop_source",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
-    crop_id: Mapped[int] = mapped_column(ForeignKey("crops.id"), nullable=False)
+    crop_id: Mapped[int | None] = mapped_column(ForeignKey("crops.id"))
+    custom_crop_name: Mapped[str | None] = mapped_column(String(120))
     field_name: Mapped[str] = mapped_column(String(120), nullable=False)
     planting_date: Mapped[date] = mapped_column(Date, nullable=False)
     area_size: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
