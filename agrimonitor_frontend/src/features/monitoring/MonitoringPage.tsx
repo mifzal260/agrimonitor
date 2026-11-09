@@ -6,6 +6,7 @@ import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ListDisplayControls } from "../../components/common/ListDisplayControls";
+import { capitalizeCropWords } from "./cropName";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
 import type { Alert, RecommendationResult } from "../../types/recommendation";
 import { formatCurrency, formatDateShort, toCurrencyNumber } from "../../utils/localeFormat";
@@ -410,7 +411,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
               className="w-full rounded-md border border-slate-300 px-3 py-2"
               maxLength={120}
               minLength={2}
-              onChange={(event) => setPlantingForm({ ...plantingForm, new_crop_name: event.target.value })}
+              onChange={(event) => setPlantingForm({ ...plantingForm, new_crop_name: capitalizeCropWords(event.target.value) })}
               placeholder={t("cropMonitoring.otherCropNamePlaceholder")}
               required
               value={plantingForm.new_crop_name}
@@ -877,7 +878,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 

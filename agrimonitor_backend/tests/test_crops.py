@@ -22,7 +22,7 @@ def test_authenticated_user_can_add_shared_crop(
     response = client.post(
         "/api/v1/monitoring/crops",
         headers=first_user_headers,
-        json={"name": "  Dragon Fruit  "},
+        json={"name": "  dragon fruit  "},
     )
 
     assert response.status_code == 201

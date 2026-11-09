@@ -23,7 +23,12 @@ class CropCreate(BaseModel):
     @field_validator("name", mode="before")
     @classmethod
     def strip_crop_name(cls, value: Any) -> Any:
-        return value.strip() if isinstance(value, str) else value
+        if not isinstance(value, str):
+            return value
+        return " ".join(
+            "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
+            for word in value.strip().split()
+        )
 
 
 class SymptomRead(BaseModel):
