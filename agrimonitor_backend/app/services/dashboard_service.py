@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.orm import Session
 
 from app.models.alert import Alert
@@ -8,6 +8,7 @@ from app.models.activity import Activity
 from app.models.harvest import Harvest
 from app.models.market_price import MarketPrice
 from app.models.planting_record import PlantingRecord
+from app.models.symptom_record import SymptomRecord
 from app.schemas.dashboard import DashboardSummary, PricePoint, StatusCount
 
 
@@ -24,7 +25,18 @@ def get_dashboard_summary(db: Session, user_id: int) -> DashboardSummary:
     crop_status = [StatusCount(status=row[0], count=row[1]) for row in status_rows]
 
     high_risk_alerts = db.scalar(
-        select(func.count()).select_from(Alert).where(Alert.user_id == user_id, Alert.risk_level == "high", Alert.is_read.is_(False))
+        select(func.count()).select_from(Alert).where(
+            Alert.user_id == user_id,
+            Alert.risk_level == "high",
+            Alert.is_read.is_(False),
+            exists(
+                select(SymptomRecord.id).where(
+                    SymptomRecord.planting_record_id == Alert.planting_record_id,
+                    SymptomRecord.user_id == user_id,
+                    SymptomRecord.status != "resolved",
+                )
+            ),
+        )
     ) or 0
 
     activity_cost = func.coalesce(Activity.cost_amount, 0) + func.coalesce(Activity.labor_cost_amount, 0)

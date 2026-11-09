@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.alert import Alert
@@ -29,6 +29,7 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
 
     matches: list[RecommendationMatch] = []
     highest_risk = "none"
+    active_high_alert_messages: set[str] = set()
     for rule in rules:
         required_symptom_ids = {link.symptom_id for link in rule.symptom_links}
         if not required_symptom_ids:
@@ -51,7 +52,21 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
         )
 
         if rule.risk_level == "high":
+            active_high_alert_messages.add(
+                f"High risk detected for {rule.disease_name}: {rule.recommendation}"
+            )
             create_high_risk_alert(db, planting_record, rule)
+
+    existing_high_alerts = db.scalars(
+        select(Alert).where(
+            Alert.user_id == user_id,
+            Alert.planting_record_id == planting_record.id,
+            Alert.risk_level == "high",
+        )
+    ).all()
+    for alert in existing_high_alerts:
+        if alert.message not in active_high_alert_messages:
+            db.delete(alert)
 
     if highest_risk in {"medium", "high"} and planting_record.status != "harvested":
         planting_record.status = "risk" if highest_risk == "high" else "watch"
@@ -92,7 +107,16 @@ def list_user_alerts(db: Session, user_id: int) -> list[Alert]:
     return list(
         db.scalars(
             select(Alert)
-            .where(Alert.user_id == user_id)
+            .where(
+                Alert.user_id == user_id,
+                exists(
+                    select(SymptomRecord.id).where(
+                        SymptomRecord.planting_record_id == Alert.planting_record_id,
+                        SymptomRecord.user_id == user_id,
+                        SymptomRecord.status != "resolved",
+                    )
+                ),
+            )
             .order_by(Alert.created_at.desc())
         ).all()
     )

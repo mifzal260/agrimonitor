@@ -244,6 +244,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         resolved_at: form.resolved_at ?? null,
       });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      setAlerts(await listAlerts(token));
       await refreshPlantingRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
@@ -257,6 +258,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     try {
       const updated = await updateSymptomRecord(token, symptomRecordId, { status: "resolved", resolved_at: new Date().toISOString() });
       setSymptomRecords((currentRecords) => currentRecords.map((record) => record.id === updated.id ? updated : record));
+      setAlerts(await listAlerts(token));
       await refreshPlantingRecords();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
@@ -291,6 +293,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       if (deleteRequest.type === "symptom") {
         await deleteSymptomRecord(token, deleteRequest.id);
         setSymptomRecords((currentRecords) => currentRecords.filter((record) => record.id !== deleteRequest.id));
+        setAlerts(await listAlerts(token));
         await refreshPlantingRecords();
         setSuccessMessage(t("notifications.symptomDeleted"));
       }
@@ -846,7 +849,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 

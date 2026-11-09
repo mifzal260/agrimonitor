@@ -17,6 +17,7 @@ from app.schemas.iot_monitoring import IotDeviceRead, LatestSensorResponse, Sens
 from app.schemas.monitoring import ActivityCreate, ActivityRead, ActivityUpdate, CropRead, PlantingRecordCreate, PlantingRecordRead, PlantingRecordUpdate, SymptomRead, SymptomRecordCreate, SymptomRecordRead, SymptomRecordUpdate
 from app.services.iot_simulator import build_alerts, build_latest_response, get_device, get_sensor_provider, list_devices, list_sensor_history, thresholds
 from app.services.monitoring_service import calculate_plant_age_days, create_activity, create_planting_record, create_symptom_record, delete_planting_record, get_owned_activity, get_owned_planting_record, get_owned_symptom_record, update_activity, update_planting_record, sync_planting_record_status_from_symptoms, update_symptom_record
+from app.services.recommendation_service import evaluate_planting_record
 
 router = APIRouter()
 
@@ -127,7 +128,9 @@ def list_observations(db: Session = Depends(get_db), current_user: User = Depend
 @router.patch("/symptom-records/{symptom_record_id}", response_model=SymptomRecordRead)
 def update_observation(symptom_record_id: int, payload: SymptomRecordUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)) -> SymptomRecord:
     record = get_owned_symptom_record(db, symptom_record_id, current_user.id)
-    return update_symptom_record(db, record, payload)
+    updated = update_symptom_record(db, record, payload)
+    evaluate_planting_record(db, updated.planting_record_id, current_user.id)
+    return updated
 
 
 @router.delete("/symptom-records/{symptom_record_id}", status_code=204)
@@ -138,6 +141,7 @@ def delete_observation(symptom_record_id: int, db: Session = Depends(get_db), cu
     db.flush()
     sync_planting_record_status_from_symptoms(db, planting_record_id)
     db.commit()
+    evaluate_planting_record(db, planting_record_id, current_user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
