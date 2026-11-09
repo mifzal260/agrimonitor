@@ -6,7 +6,7 @@ import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
 import { ListDisplayControls } from "../../components/common/ListDisplayControls";
-import { capitalizeCropWords } from "./cropName";
+import { capitalizeCropWords, isSelectableCropName } from "./cropName";
 import type { Activity, Crop, PlantingRecord, Symptom, SymptomRecord } from "../../types/monitoring";
 import type { Alert, RecommendationResult } from "../../types/recommendation";
 import { formatCurrency, formatDateShort, toCurrencyNumber } from "../../utils/localeFormat";
@@ -401,7 +401,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
       <form onSubmit={submitPlantingRecord} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">{t("cropMonitoring.addPlantingRecord")}</h3>
         <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.crop_id} onChange={(event) => setPlantingForm({ ...plantingForm, crop_id: event.target.value, new_crop_name: "" })} required>
-          <option value="">{t("cropMonitoring.selectCrop")}</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
+          <option value="">{t("cropMonitoring.selectCrop")}</option>{crops.filter((crop) => isSelectableCropName(crop.name)).map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
           <option value="other">{t("cropMonitoring.otherCrop")}</option>
         </select>
         {plantingForm.crop_id === "other" && (
@@ -878,7 +878,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 

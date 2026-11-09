@@ -3,3 +3,7 @@ export function capitalizeCropWords(value: string) {
     separator + letter.toLocaleUpperCase(),
   );
 }
+
+export function isSelectableCropName(name: string) {
+  return name.trim().toLocaleLowerCase() !== "nenas";
+}

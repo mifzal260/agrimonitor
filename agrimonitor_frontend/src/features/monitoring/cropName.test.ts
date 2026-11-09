@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { capitalizeCropWords } from "./cropName";
+import { capitalizeCropWords, isSelectableCropName } from "./cropName";
 
 describe("capitalizeCropWords", () => {
   it("capitalizes the first letter of each word", () => {
@@ -13,5 +13,11 @@ describe("capitalizeCropWords", () => {
 
   it("supports Unicode letters", () => {
     expect(capitalizeCropWords("café arabica")).toBe("Café Arabica");
+  });
+
+  it("excludes Nenas from the planting crop options regardless of casing", () => {
+    expect(isSelectableCropName("Nenas")).toBe(false);
+    expect(isSelectableCropName(" nEnAs ")).toBe(false);
+    expect(isSelectableCropName("Nanas")).toBe(true);
   });
 });
