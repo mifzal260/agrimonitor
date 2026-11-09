@@ -5,6 +5,13 @@ export function listCrops(_token: string) {
   return apiRequest<Crop[]>("/monitoring/crops");
 }
 
+export function createCrop(_token: string, name: string) {
+  return apiRequest<Crop>("/monitoring/crops", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+}
+
 export function listSymptoms(_token: string) {
   return apiRequest<Symptom[]>("/monitoring/symptoms");
 }
@@ -135,5 +142,4 @@ export function deleteSymptomRecord(_token: string, symptomRecordId: number) {
     method: "DELETE",
   });
 }
-
 

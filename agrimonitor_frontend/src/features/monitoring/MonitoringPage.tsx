@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { createActivity, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
+import { createActivity, createCrop, createPlantingRecord, createSymptomRecord, deleteActivity, deletePlantingRecord, deleteSymptomRecord, listActivities, listCrops, listPlantingRecords, listSymptoms, listSymptomRecords, updateActivity, updatePlantingRecord, updateSymptomRecord } from "../../api/monitoring";
 import { evaluatePlantingRecord, listAlerts } from "../../api/recommendations";
 import { StatusBadge } from "../../components/StatusBadge";
 import { ConfirmDialog } from "../../components/common/ConfirmDialog";
@@ -82,7 +82,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [plantingForm, setPlantingForm] = useState({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
+  const [plantingForm, setPlantingForm] = useState({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
   const [symptomForm, setSymptomForm] = useState({ planting_record_id: "", symptom_id: "", severity: "low", observed_at: "", notes: "", image_url: "" });
 
@@ -128,15 +128,24 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
     setIsSavingPlanting(true);
     try {
+      const crop = plantingForm.crop_id === "other"
+        ? await createCrop(token, plantingForm.new_crop_name.trim())
+        : crops.find((item) => item.id.toString() === plantingForm.crop_id);
+      if (!crop) {
+        setError(t("cropMonitoring.selectCrop"));
+        return;
+      }
+      setCrops((currentCrops) => currentCrops.some((item) => item.id === crop.id) ? currentCrops : [...currentCrops, crop].sort((a, b) => a.name.localeCompare(b.name)));
       const savedRecord = await createPlantingRecord(token, {
-        ...plantingForm,
-        crop_id: Number(plantingForm.crop_id),
+        crop_id: crop.id,
         field_name: plantingForm.field_name.trim(),
+        planting_date: plantingForm.planting_date,
         area_size: areaSize,
+        status: plantingForm.status,
         notes: plantingForm.notes.trim(),
       });
       setRecords((currentRecords) => [savedRecord, ...currentRecords.filter((record) => record.id !== savedRecord.id)]);
-      setPlantingForm({ crop_id: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
+      setPlantingForm({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", area_size: "", status: "healthy", notes: "" });
       setSuccessMessage(t("notifications.plantingSaved"));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
@@ -390,9 +399,25 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
       <form onSubmit={submitPlantingRecord} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
         <h3 className="font-semibold">{t("cropMonitoring.addPlantingRecord")}</h3>
-        <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.crop_id} onChange={(event) => setPlantingForm({ ...plantingForm, crop_id: event.target.value })} required>
+        <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={plantingForm.crop_id} onChange={(event) => setPlantingForm({ ...plantingForm, crop_id: event.target.value, new_crop_name: "" })} required>
           <option value="">{t("cropMonitoring.selectCrop")}</option>{crops.map((crop) => <option key={crop.id} value={crop.id}>{crop.name}</option>)}
+          <option value="other">{t("cropMonitoring.otherCrop")}</option>
         </select>
+        {plantingForm.crop_id === "other" && (
+          <label className="block space-y-1 text-sm font-medium text-slate-700">
+            <span>{t("cropMonitoring.otherCropName")}</span>
+            <input
+              className="w-full rounded-md border border-slate-300 px-3 py-2"
+              maxLength={120}
+              minLength={2}
+              onChange={(event) => setPlantingForm({ ...plantingForm, new_crop_name: event.target.value })}
+              placeholder={t("cropMonitoring.otherCropNamePlaceholder")}
+              required
+              value={plantingForm.new_crop_name}
+            />
+            <span className="block text-xs font-normal text-slate-500">{t("cropMonitoring.otherCropHelp")}</span>
+          </label>
+        )}
         <label className="block space-y-1 text-sm font-medium text-slate-700">
           <span>{t("cropMonitoring.plotName")}</span>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.plotNamePlaceholder")} value={plantingForm.field_name} onChange={(event) => setPlantingForm({ ...plantingForm, field_name: event.target.value })} required />
@@ -857,8 +882,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
-
 
 
 

@@ -1,7 +1,7 @@
 from datetime import date
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.activity import Activity
@@ -12,7 +12,7 @@ from app.models.harvest import Harvest
 from app.models.planting_record import PlantingRecord
 from app.models.symptom import Symptom
 from app.models.symptom_record import SymptomRecord
-from app.schemas.monitoring import ActivityCreate, ActivityUpdate, PlantingRecordCreate, PlantingRecordUpdate, SymptomRecordCreate, SymptomRecordUpdate
+from app.schemas.monitoring import ActivityCreate, ActivityUpdate, CropCreate, PlantingRecordCreate, PlantingRecordUpdate, SymptomRecordCreate, SymptomRecordUpdate
 
 
 def calculate_plant_age_days(planting_date: date) -> int:
@@ -23,6 +23,21 @@ def get_crop_or_404(db: Session, crop_id: int) -> Crop:
     crop = db.get(Crop, crop_id)
     if crop is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Crop not found")
+    return crop
+
+
+def create_crop(db: Session, payload: CropCreate) -> Crop:
+    normalized_name = payload.name.strip()
+    existing_crop = db.scalar(
+        select(Crop).where(func.lower(Crop.name) == normalized_name.lower())
+    )
+    if existing_crop is not None:
+        return existing_crop
+
+    crop = Crop(name=normalized_name)
+    db.add(crop)
+    db.commit()
+    db.refresh(crop)
     return crop
 
 

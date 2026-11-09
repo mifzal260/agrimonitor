@@ -17,6 +17,15 @@ class CropRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CropCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=120)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_crop_name(cls, value: Any) -> Any:
+        return value.strip() if isinstance(value, str) else value
+
+
 class SymptomRead(BaseModel):
     id: int
     name: str
