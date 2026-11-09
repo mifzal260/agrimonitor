@@ -1,7 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.enums import PlantingStatus, SymptomRecordStatus, SymptomSeverity
 
@@ -45,6 +46,13 @@ class PlantingRecordUpdate(BaseModel):
     status: PlantingStatus | None = None
     notes: str | None = None
 
+    @field_validator("crop_id", "field_name", "planting_date", "status", mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
+
 
 class PlantingRecordRead(PlantingRecordBase):
     id: int
@@ -74,6 +82,13 @@ class ActivityUpdate(BaseModel):
     description: str | None = None
     cost_amount: Decimal | None = Field(default=None, ge=0)
     labor_cost_amount: Decimal | None = Field(default=None, ge=0)
+
+    @field_validator("activity_type", "activity_date", mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
 
 
 class ActivityRead(ActivityBase):
@@ -105,6 +120,13 @@ class SymptomRecordUpdate(BaseModel):
     observed_at: datetime | None = None
     status: SymptomRecordStatus | None = None
     resolved_at: datetime | None = None
+
+    @field_validator("severity", "observed_at", "status", mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
 
 
 class SymptomRecordRead(SymptomRecordBase):
