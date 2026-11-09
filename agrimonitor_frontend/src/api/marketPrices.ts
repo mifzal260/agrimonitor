@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { CsvImportResult, MarketPrice } from "../types/marketPrice";
+import type { MarketPrice } from "../types/marketPrice";
 
 export type MarketPriceFilters = {
   commodity_name?: string;
@@ -41,14 +41,5 @@ export function createMarketPrice(_token: string, payload: MarketPricePayload) {
   return apiRequest<MarketPrice>("/market-prices", {
     method: "POST",
     body: JSON.stringify({ ...payload, crop_id: payload.crop_id ?? null }),
-  });
-}
-
-export async function importMarketPricesCsv(_token: string, file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  return apiRequest<CsvImportResult>("/market-prices/import-csv", {
-    method: "POST",
-    body: formData,
   });
 }

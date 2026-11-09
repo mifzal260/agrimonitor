@@ -164,7 +164,7 @@ function App() {
         path="/market-prices"
         element={
           <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
-            <MarketPricePage token={token ?? ""} user={user as User} />
+            <MarketPricePage token={token ?? ""} />
           </ProtectedAppShell>
         }
       />

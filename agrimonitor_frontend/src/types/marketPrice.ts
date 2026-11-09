@@ -9,8 +9,3 @@ export type MarketPrice = {
   recorded_date: string;
   trend: "up" | "down" | "stable" | string;
 };
-
-export type CsvImportResult = {
-  imported: number;
-  skipped: number;
-};

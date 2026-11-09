@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
-import type { User } from "../../types/auth";
+import { listMarketPrices } from "../../api/marketPrices";
 import type { MarketPrice } from "../../types/marketPrice";
 import { CommodityPriceAccordionList } from "./CommodityPriceAccordionList";
 import { DailyPriceSummary } from "./DailyPriceSummary";
@@ -10,22 +9,19 @@ import { buildCommodityPriceGroups, buildPriceSummary } from "./priceTrendUtils"
 
 type MarketPricePageProps = {
   token: string;
-  user: User;
 };
 
 const emptyFilters = { commodity_name: "", location: "", price_type: "", date_from: "", date_to: "" };
 
-export function MarketPricePage({ token, user }: MarketPricePageProps) {
+export function MarketPricePage({ token }: MarketPricePageProps) {
   const { t } = useTranslation();
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [allPrices, setAllPrices] = useState<MarketPrice[]>([]);
   const [filters, setFilters] = useState(emptyFilters);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [appliedPriceType, setAppliedPriceType] = useState("");
 
   const hasActiveFilters = useMemo(() => Object.values(filters).some(Boolean), [filters]);
@@ -85,27 +81,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
     }
   }
 
-  async function submitCsv(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!csvFile) {
-      setError(t("validation.selectCsvFile"));
-      return;
-    }
-    setMessage("");
-    setError("");
-    setIsImportingCsv(true);
-    try {
-      const result = await importMarketPricesCsv(token, csvFile);
-      setCsvFile(null);
-      setMessage(t("notifications.csvImported", { imported: result.imported, skipped: result.skipped }));
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
-    } finally {
-      setIsImportingCsv(false);
-    }
-  }
-
   if (isLoading) return <p className="rounded-lg border border-field-100 bg-white p-4 text-sm text-slate-700">{t("common.loading")}...</p>;
 
   return (
@@ -149,16 +124,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       </form>
 
       <CommodityPriceAccordionList groups={commodityGroups} selectedPriceType={appliedPriceType} />
-
-      {user.role === "admin" && (
-        <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold">{t("marketPrice.importCsv")}</h3>
-            <p className="text-sm text-slate-600">{t("marketPrice.csvInstructions")}</p>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? t("marketPrice.importing") : t("marketPrice.importCsv")}</button>
-        </form>
-      )}
-
 
     </div>
   );
@@ -217,4 +182,3 @@ function formatDisplayDate(dateValue: string) {
   const [year, month, day] = dateValue.split("-");
   return `${day}/${month}/${year}`;
 }
-
