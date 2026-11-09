@@ -137,7 +137,7 @@
     "summaryTitle": "Crop monitoring",
     "summaryDescription": "Track crop age, plot status, activities, symptoms, and rule-based risks.",
     "latest": "Latest",
-    "highRiskAlerts": "High risk alerts",
+    "riskAlerts": "Risk alerts",
     "recommendationResult": "Recommendation result",
     "noMatchingRule": "No matching disease rule found from current symptoms.",
     "matched": "Matched",

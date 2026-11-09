@@ -20,6 +20,13 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
     ).all()
     observed_symptom_ids = {record.symptom_id for record in symptom_records}
     observed_symptom_names = {record.symptom_id: record.symptom.name for record in symptom_records}
+    observed_symptom_severities = {
+        symptom_id: max(
+            (record.severity for record in symptom_records if record.symptom_id == symptom_id),
+            key=risk_rank.__getitem__,
+        )
+        for symptom_id in observed_symptom_ids
+    }
 
     rules = db.scalars(
         select(DiseaseRule)
@@ -29,7 +36,7 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
 
     matches: list[RecommendationMatch] = []
     highest_risk = "none"
-    active_high_alert_messages: set[str] = set()
+    active_alert_messages: set[str] = set()
     for rule in rules:
         required_symptom_ids = {link.symptom_id for link in rule.symptom_links}
         if not required_symptom_ids:
@@ -51,21 +58,25 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
             )
         )
 
-        if rule.risk_level == "high":
-            active_high_alert_messages.add(
-                f"High risk detected for {rule.disease_name}: {rule.recommendation}"
-            )
-            create_high_risk_alert(db, planting_record, rule)
+        alert_severity = max(
+            (observed_symptom_severities[symptom_id] for symptom_id in matched_ids),
+            key=risk_rank.__getitem__,
+        )
+        alert_message = (
+            f"{alert_severity.capitalize()} risk detected for "
+            f"{rule.disease_name}: {rule.recommendation}"
+        )
+        active_alert_messages.add(alert_message)
+        create_risk_alert(db, planting_record, alert_severity, alert_message)
 
-    existing_high_alerts = db.scalars(
+    existing_alerts = db.scalars(
         select(Alert).where(
             Alert.user_id == user_id,
             Alert.planting_record_id == planting_record.id,
-            Alert.risk_level == "high",
         )
     ).all()
-    for alert in existing_high_alerts:
-        if alert.message not in active_high_alert_messages:
+    for alert in existing_alerts:
+        if alert.message not in active_alert_messages:
             db.delete(alert)
 
     if highest_risk in {"medium", "high"} and planting_record.status != "harvested":
@@ -79,13 +90,17 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
     )
 
 
-def create_high_risk_alert(db: Session, planting_record: PlantingRecord, rule: DiseaseRule) -> None:
-    message = f"High risk detected for {rule.disease_name}: {rule.recommendation}"
+def create_risk_alert(
+    db: Session,
+    planting_record: PlantingRecord,
+    risk_level: str,
+    message: str,
+) -> None:
     existing_alert = db.scalar(
         select(Alert).where(
             Alert.user_id == planting_record.user_id,
             Alert.planting_record_id == planting_record.id,
-            Alert.risk_level == "high",
+            Alert.risk_level == risk_level,
             Alert.message == message,
         )
     )
@@ -96,7 +111,7 @@ def create_high_risk_alert(db: Session, planting_record: PlantingRecord, rule: D
         Alert(
             user_id=planting_record.user_id,
             planting_record_id=planting_record.id,
-            risk_level="high",
+            risk_level=risk_level,
             message=message,
             is_read=False,
         )
@@ -104,6 +119,14 @@ def create_high_risk_alert(db: Session, planting_record: PlantingRecord, rule: D
 
 
 def list_user_alerts(db: Session, user_id: int) -> list[Alert]:
+    alerted_planting_record_ids = db.scalars(
+        select(Alert.planting_record_id)
+        .where(Alert.user_id == user_id)
+        .distinct()
+    ).all()
+    for planting_record_id in alerted_planting_record_ids:
+        evaluate_planting_record(db, planting_record_id, user_id)
+
     return list(
         db.scalars(
             select(Alert)

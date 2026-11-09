@@ -137,7 +137,7 @@
     "summaryTitle": "Pemantauan tanaman",
     "summaryDescription": "Pantau umur tanaman, status plot, aktiviti, simptom dan risiko berdasarkan peraturan.",
     "latest": "Terkini",
-    "highRiskAlerts": "Amaran risiko tinggi",
+    "riskAlerts": "Amaran risiko",
     "recommendationResult": "Keputusan cadangan",
     "noMatchingRule": "Tiada peraturan penyakit yang sepadan daripada simptom semasa.",
     "matched": "Padanan",

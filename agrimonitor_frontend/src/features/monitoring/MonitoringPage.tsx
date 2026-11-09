@@ -350,9 +350,17 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
       {alerts.length > 0 && (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-          <h3 className="font-semibold text-amber-900">{t("cropMonitoring.highRiskAlerts")}</h3>
+          <h3 className="font-semibold text-amber-900">{t("cropMonitoring.riskAlerts")}</h3>
           <ul className="mt-3 space-y-2 text-sm text-amber-900">
-            {alerts.slice(0, 3).map((alert) => <li key={alert.id}>{alert.message}</li>)}
+            {alerts.slice(0, 3).map((alert) => (
+              <li className="flex flex-wrap items-start gap-2" key={alert.id}>
+                <StatusBadge
+                  label={t(`status.${alert.risk_level}`, { defaultValue: alert.risk_level })}
+                  tone={alert.risk_level === "high" ? "warning" : alert.risk_level === "medium" ? "info" : "success"}
+                />
+                <span>{alert.message}</span>
+              </li>
+            ))}
           </ul>
         </section>
       )}
@@ -849,7 +857,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 
