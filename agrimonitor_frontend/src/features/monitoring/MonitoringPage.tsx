@@ -83,7 +83,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   const [deleteRequest, setDeleteRequest] = useState<DeleteRequest | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [plantingForm, setPlantingForm] = useState({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", area_size: "", notes: "" });
+  const [plantingForm, setPlantingForm] = useState({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
   const [symptomForm, setSymptomForm] = useState({ planting_record_id: "", symptom_id: "", severity: "low", observed_at: "", notes: "", image_url: "" });
 
@@ -121,12 +121,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
     setError("");
     setSuccessMessage("");
 
-    const areaSize = normalizeDecimalInput(plantingForm.area_size);
-    if (!isValidDecimal(areaSize)) {
-      setError(t("validation.invalidAreaSize"));
-      return;
-    }
-
     setIsSavingPlanting(true);
     try {
       const isCustomCrop = plantingForm.crop_id === "other";
@@ -140,12 +134,11 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         custom_crop_name: isCustomCrop ? capitalizeCropWords(plantingForm.new_crop_name).trim() : null,
         field_name: plantingForm.field_name.trim(),
         planting_date: plantingForm.planting_date,
-        area_size: areaSize,
         status: "healthy",
         notes: plantingForm.notes.trim(),
       });
       setRecords((currentRecords) => [savedRecord, ...currentRecords.filter((record) => record.id !== savedRecord.id)]);
-      setPlantingForm({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", area_size: "", notes: "" });
+      setPlantingForm({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", notes: "" });
       setSuccessMessage(t("notifications.plantingSaved"));
     } catch (err) {
       setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
@@ -432,13 +425,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
           <span>{t("cropMonitoring.plantingDate")}</span>
           <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={plantingForm.planting_date} onChange={(event) => setPlantingForm({ ...plantingForm, planting_date: event.target.value })} required />
         </label>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="block space-y-1 text-sm font-medium text-slate-700">
-            <span>{t("cropMonitoring.areaSize")}</span>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" inputMode="decimal" placeholder="0.25" value={plantingForm.area_size} onChange={(event) => setPlantingForm({ ...plantingForm, area_size: event.target.value })} />
-            <span className="block text-xs font-normal text-slate-500">{t("cropMonitoring.areaSizeHelp")}</span>
-          </label>
-        </div>
         <label className="block space-y-1 text-sm font-medium text-slate-700">
           <span>{t("cropMonitoring.notes")}</span>
           <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.notesPlaceholder")} value={plantingForm.notes} onChange={(event) => setPlantingForm({ ...plantingForm, notes: event.target.value })} />
@@ -884,7 +870,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 
