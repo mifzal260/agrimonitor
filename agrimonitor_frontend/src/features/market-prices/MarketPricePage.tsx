@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { createMarketPrice, importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
+import { importMarketPricesCsv, listMarketPrices } from "../../api/marketPrices";
 import type { User } from "../../types/auth";
 import type { MarketPrice } from "../../types/marketPrice";
 import { CommodityPriceAccordionList } from "./CommodityPriceAccordionList";
@@ -20,13 +20,11 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
   const [prices, setPrices] = useState<MarketPrice[]>([]);
   const [allPrices, setAllPrices] = useState<MarketPrice[]>([]);
   const [filters, setFilters] = useState(emptyFilters);
-  const [form, setForm] = useState({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isFiltering, setIsFiltering] = useState(false);
-  const [isSavingPrice, setIsSavingPrice] = useState(false);
   const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [appliedPriceType, setAppliedPriceType] = useState("");
 
@@ -84,24 +82,6 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       setError(err instanceof Error ? err.message : t("notifications.updateFailed"));
     } finally {
       setIsFiltering(false);
-    }
-  }
-
-  async function submitPrice(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setMessage("");
-    setError("");
-    setIsSavingPrice(true);
-    try {
-      const savedPrice = await createMarketPrice(token, form);
-      setPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
-      setAllPrices((currentPrices) => [savedPrice, ...currentPrices.filter((price) => price.id !== savedPrice.id)]);
-      setForm({ commodity_name: "", location: "", price_type: "retail", price: "", unit: "kg", recorded_date: "", trend: "stable" });
-      setMessage(t("notifications.marketPriceSaved"));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t("notifications.saveFailed"));
-    } finally {
-      setIsSavingPrice(false);
     }
   }
 
@@ -171,22 +151,12 @@ export function MarketPricePage({ token, user }: MarketPricePageProps) {
       <CommodityPriceAccordionList groups={commodityGroups} selectedPriceType={appliedPriceType} />
 
       {user.role === "admin" && (
-        <div className="grid gap-5 md:grid-cols-2">
-          <form onSubmit={submitPrice} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
-            <h3 className="font-semibold">{t("marketPrice.addMarketPrice")}</h3>
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.commodity")} value={form.commodity_name} onChange={(event) => setForm({ ...form, commodity_name: event.target.value })} required />
-            <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.location")} value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} required />
-            <div className="grid grid-cols-2 gap-3"><select className="rounded-md border border-slate-300 px-3 py-2" value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value })}><option value="farm">{t("marketPrice.farm")}</option><option value="retail">{t("marketPrice.retail")}</option><option value="wholesale">{t("marketPrice.wholesale")}</option></select><select className="rounded-md border border-slate-300 px-3 py-2" value={form.trend} onChange={(event) => setForm({ ...form, trend: event.target.value })}><option value="stable">{t("status.stable")}</option><option value="up">{t("status.up")}</option><option value="down">{t("status.down")}</option></select></div>
-            <div className="grid grid-cols-3 gap-3"><input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.price")} value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" placeholder={t("marketPrice.unit")} value={form.unit} onChange={(event) => setForm({ ...form, unit: event.target.value })} required /><input className="rounded-md border border-slate-300 px-3 py-2" type="date" value={form.recorded_date} onChange={(event) => setForm({ ...form, recorded_date: event.target.value })} required /></div>
-            <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingPrice}>{isSavingPrice ? t("finance.saving") : t("marketPrice.savePrice")}</button>
-          </form>
-          <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
+        <form onSubmit={submitCsv} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
             <h3 className="font-semibold">{t("marketPrice.importCsv")}</h3>
             <p className="text-sm text-slate-600">{t("marketPrice.csvInstructions")}</p>
             <input className="w-full rounded-md border border-slate-300 px-3 py-2" type="file" accept=".csv,text/csv" onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)} required />
             <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isImportingCsv}>{isImportingCsv ? t("marketPrice.importing") : t("marketPrice.importCsv")}</button>
-          </form>
-        </div>
+        </form>
       )}
 
 
@@ -247,5 +217,4 @@ function formatDisplayDate(dateValue: string) {
   const [year, month, day] = dateValue.split("-");
   return `${day}/${month}/${year}`;
 }
-
 
