@@ -18,8 +18,13 @@ def evaluate_planting_record(db: Session, planting_record_id: int, user_id: int)
         .options(selectinload(SymptomRecord.symptom))
         .where(SymptomRecord.planting_record_id == planting_record.id, SymptomRecord.user_id == user_id, SymptomRecord.status != "resolved")
     ).all()
-    observed_symptom_ids = {record.symptom_id for record in symptom_records}
-    observed_symptom_names = {record.symptom_id: record.symptom.name for record in symptom_records}
+    catalog_symptom_records = [record for record in symptom_records if record.symptom_id is not None]
+    observed_symptom_ids = {record.symptom_id for record in catalog_symptom_records}
+    observed_symptom_names = {
+        record.symptom_id: record.symptom.name
+        for record in catalog_symptom_records
+        if record.symptom is not None
+    }
     observed_symptom_severities = {
         symptom_id: max(
             (record.severity for record in symptom_records if record.symptom_id == symptom_id),

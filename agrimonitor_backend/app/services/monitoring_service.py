@@ -135,7 +135,8 @@ def sync_planting_record_status_from_symptoms(db: Session, planting_record_id: i
 
 def create_symptom_record(db: Session, user_id: int, payload: SymptomRecordCreate) -> SymptomRecord:
     get_owned_planting_record(db, payload.planting_record_id, user_id)
-    get_symptom_or_404(db, payload.symptom_id)
+    if payload.symptom_id is not None:
+        get_symptom_or_404(db, payload.symptom_id)
     record = SymptomRecord(user_id=user_id, **payload.model_dump())
     db.add(record)
     db.flush()

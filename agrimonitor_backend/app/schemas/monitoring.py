@@ -144,7 +144,8 @@ class ActivityRead(ActivityBase):
 
 class SymptomRecordBase(BaseModel):
     planting_record_id: int
-    symptom_id: int
+    symptom_id: int | None = None
+    custom_symptom_name: str | None = Field(default=None, min_length=2, max_length=120)
     severity: SymptomSeverity
     notes: str | None = None
     image_url: str | None = Field(default=None, max_length=500)
@@ -154,7 +155,21 @@ class SymptomRecordBase(BaseModel):
 
 
 class SymptomRecordCreate(SymptomRecordBase):
-    pass
+    @field_validator("custom_symptom_name", mode="before")
+    @classmethod
+    def normalize_custom_symptom_name(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return " ".join(
+            "-".join(part[:1].upper() + part[1:] for part in word.split("-"))
+            for word in value.strip().split()
+        )
+
+    @model_validator(mode="after")
+    def require_symptom_reference_or_custom_name(self) -> "SymptomRecordCreate":
+        if (self.symptom_id is None) == (self.custom_symptom_name is None):
+            raise ValueError("Provide either symptom_id or custom_symptom_name")
+        return self
 
 
 class SymptomRecordUpdate(BaseModel):
@@ -176,6 +191,6 @@ class SymptomRecordUpdate(BaseModel):
 class SymptomRecordRead(SymptomRecordBase):
     id: int
     user_id: int
-    symptom: SymptomRead
+    symptom: SymptomRead | None = None
 
     model_config = {"from_attributes": True}

@@ -6,6 +6,7 @@ import { listMarketPrices } from "../../api/marketPrices";
 import { listPlantingRecords, listSymptomRecords } from "../../api/monitoring";
 import { StatusBadge } from "../../components/StatusBadge";
 import { getPlantingCropName } from "../monitoring/cropName";
+import { getSymptomRecordName } from "../monitoring/symptomName";
 import type { DashboardSummary } from "../../types/dashboard";
 import type { MarketPrice } from "../../types/marketPrice";
 import type { PlantingRecord, SymptomRecord } from "../../types/monitoring";
@@ -157,7 +158,7 @@ export function DashboardPage({ token }: DashboardPageProps) {
                   <div>
                     <p className="font-semibold text-slate-950">{record.field_name} - {getPlantingCropName(record)}</p>
                     {latestActiveSymptom ? (
-                      <p className="mt-1 text-slate-700">{latestActiveSymptom.symptom.name} <span className="text-xs text-slate-500">({t(`status.${latestActiveSymptom.severity}`, { defaultValue: latestActiveSymptom.severity })})</span></p>
+                      <p className="mt-1 text-slate-700">{getSymptomRecordName(latestActiveSymptom)} <span className="text-xs text-slate-500">({t(`status.${latestActiveSymptom.severity}`, { defaultValue: latestActiveSymptom.severity })})</span></p>
                     ) : (
                       <p className="mt-1 text-slate-700">{t("dashboard.noActiveSymptoms")}</p>
                     )}
@@ -236,7 +237,6 @@ function getLatestRecordDate(records: PlantingRecord[], symptoms: SymptomRecord[
 function parseDateValue(dateValue: string) {
   return new Date(dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`);
 }
-
 
 
 

@@ -41,12 +41,13 @@ export type SymptomRecord = {
   id: number;
   user_id: number;
   planting_record_id: number;
-  symptom_id: number;
+  symptom_id: number | null;
+  custom_symptom_name: string | null;
   severity: string;
   notes: string | null;
   image_url: string | null;
   observed_at: string;
   status: string;
   resolved_at: string | null;
-  symptom: Symptom;
+  symptom: Symptom | null;
 };

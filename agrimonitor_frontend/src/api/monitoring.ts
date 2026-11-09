@@ -102,7 +102,8 @@ export function listSymptomRecords(_token: string) {
 
 export function createSymptomRecord(_token: string, payload: {
   planting_record_id: number;
-  symptom_id: number;
+  symptom_id?: number | null;
+  custom_symptom_name?: string | null;
   severity: string;
   notes?: string;
   image_url?: string;
