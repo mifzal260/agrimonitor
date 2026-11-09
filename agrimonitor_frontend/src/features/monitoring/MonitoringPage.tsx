@@ -86,7 +86,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
 
   const [plantingForm, setPlantingForm] = useState({ crop_id: "", new_crop_name: "", field_name: "", planting_date: "", notes: "" });
   const [activityForm, setActivityForm] = useState({ planting_record_id: "", activity_type: "", activity_date: "", description: "", cost_amount: "", labor_cost_amount: "" });
-  const [symptomForm, setSymptomForm] = useState({ planting_record_id: "", symptom_id: "", custom_symptom_name: "", severity: "low", observed_at: "", notes: "", image_url: "" });
+  const [symptomForm, setSymptomForm] = useState({ planting_record_id: "", symptom_id: "", custom_symptom_name: "", severity: "low", observed_at: "", notes: "" });
 
   const hasRecords = records.length > 0;
   const latestRecord = useMemo(() => records[0], [records]);
@@ -227,11 +227,10 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         custom_symptom_name: symptomForm.symptom_id === "other" ? capitalizeSymptomWords(symptomForm.custom_symptom_name).trim() : null,
         severity: symptomForm.severity,
         notes: symptomForm.notes,
-        image_url: symptomForm.image_url,
         observed_at: new Date(`${symptomForm.observed_at}T12:00:00`).toISOString(),
       });
       setSymptomRecords((currentRecords) => [saved, ...currentRecords.filter((record) => record.id !== saved.id)]);
-      setSymptomForm({ planting_record_id: "", symptom_id: "", custom_symptom_name: "", severity: "low", observed_at: "", notes: "", image_url: "" });
+      setSymptomForm({ planting_record_id: "", symptom_id: "", custom_symptom_name: "", severity: "low", observed_at: "", notes: "" });
       setSymptomSaveMessage(t("notifications.symptomSaved"));
       await evaluate(saved.planting_record_id);
       await refreshPlantingRecords();
@@ -243,7 +242,7 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
   }
 
 
-  async function handleUpdateSymptomRecord(symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) {
+  async function handleUpdateSymptomRecord(symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; status: string; resolved_at?: string | null }) {
     setError("");
     setSuccessMessage("");
     try {
@@ -251,7 +250,6 @@ export function MonitoringPage({ token }: MonitoringPageProps) {
         severity: form.severity,
         observed_at: new Date(`${form.observed_at}T12:00:00`).toISOString(),
         notes: form.notes.trim(),
-        image_url: form.image_url.trim(),
         status: form.status,
         resolved_at: form.resolved_at ?? null,
       });
@@ -553,7 +551,7 @@ function ActivityForm({ records, form, setForm, onSubmit, isSaving, saveMessage 
     </form>
   );
 }
-function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, saveMessage }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; custom_symptom_name: string; severity: string; observed_at: string; notes: string; image_url: string }; setForm: (form: { planting_record_id: string; symptom_id: string; custom_symptom_name: string; severity: string; observed_at: string; notes: string; image_url: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean; saveMessage: string }) {
+function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, saveMessage }: { records: PlantingRecord[]; symptoms: Symptom[]; form: { planting_record_id: string; symptom_id: string; custom_symptom_name: string; severity: string; observed_at: string; notes: string }; setForm: (form: { planting_record_id: string; symptom_id: string; custom_symptom_name: string; severity: string; observed_at: string; notes: string }) => void; onSubmit: (event: React.FormEvent<HTMLFormElement>) => void; isSaving: boolean; saveMessage: string }) {
   const { t } = useTranslation();
   return (
     <form onSubmit={onSubmit} className="space-y-3 rounded-lg border border-field-100 bg-white p-4 shadow-sm">
@@ -577,7 +575,6 @@ function SymptomForm({ records, symptoms, form, setForm, onSubmit, isSaving, sav
           </select>
         </label>
       </div>
-      <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.imageUrlOptional")} value={form.image_url} onChange={(event) => setForm({ ...form, image_url: event.target.value })} />
       <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.notes")} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
       <button className="w-full rounded-md bg-field-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60" type="submit" disabled={isSaving}>{isSaving ? t("cropMonitoring.saving") : t("cropMonitoring.saveSymptom")}</button>
       {saveMessage && <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{saveMessage}</p>}
@@ -718,7 +715,7 @@ function ActivitySummary({ records, activities, onUpdate, onDelete }: { records:
     </div>
   );
 }
-function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[]; onUpdate: (symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; image_url: string; status: string; resolved_at?: string | null }) => Promise<void>; onResolve: (symptomRecordId: number) => Promise<void>; onDelete: (symptomRecordId: number) => void }) {
+function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete }: { records: PlantingRecord[]; symptomRecords: SymptomRecord[]; onUpdate: (symptomRecordId: number, form: { severity: string; observed_at: string; notes: string; status: string; resolved_at?: string | null }) => Promise<void>; onResolve: (symptomRecordId: number) => Promise<void>; onDelete: (symptomRecordId: number) => void }) {
   const { t } = useTranslation();
   const [selectedRecordId, setSelectedRecordId] = useState(() => records.find((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id))?.id.toString() ?? "");
   const [statusFilter, setStatusFilter] = useState<"active" | "resolved">("active");
@@ -726,7 +723,7 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
-  const [editForm, setEditForm] = useState({ severity: "low", observed_at: "", notes: "", image_url: "", status: "active", resolved_at: null as string | null });
+  const [editForm, setEditForm] = useState({ severity: "low", observed_at: "", notes: "", status: "active", resolved_at: null as string | null });
 
   const recordsWithSymptoms = records.filter((record) => symptomRecords.some((symptom) => symptom.planting_record_id === record.id));
   const selectedRecord = records.find((record) => record.id.toString() === selectedRecordId);
@@ -758,7 +755,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
       severity: record.severity,
       observed_at: toDateInput(record.observed_at),
       notes: record.notes ?? "",
-      image_url: record.image_url ?? "",
       status: record.status,
       resolved_at: record.resolved_at,
     });
@@ -835,7 +831,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
                       <select className="w-full rounded-md border border-slate-300 px-3 py-2" value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value, resolved_at: event.target.value === "resolved" ? (editForm.resolved_at ?? new Date().toISOString()) : null })}>
                         <option value="active">{t("cropMonitoring.active")}</option><option value="monitoring">{t("cropMonitoring.monitoring")}</option><option value="resolved">{t("cropMonitoring.resolved")}</option>
                       </select>
-                      <input className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.imageUrlOptional")} value={editForm.image_url} onChange={(event) => setEditForm({ ...editForm, image_url: event.target.value })} />
                       <textarea className="w-full rounded-md border border-slate-300 px-3 py-2" placeholder={t("cropMonitoring.notes")} value={editForm.notes} onChange={(event) => setEditForm({ ...editForm, notes: event.target.value })} />
                       <div className="flex gap-2">
                         <button className="rounded-md bg-field-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60" type="submit" disabled={isSavingEdit}>{isSavingEdit ? t("cropMonitoring.saving") : t("common.save")}</button>
@@ -875,7 +870,6 @@ function SymptomSummary({ records, symptomRecords, onUpdate, onResolve, onDelete
     </div>
   );
 }
-
 
 
 

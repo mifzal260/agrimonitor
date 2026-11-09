@@ -129,7 +129,11 @@ export function updateSymptomRecord(_token: string, symptomRecordId: number, pay
 }) {
   return apiRequest<SymptomRecord>(`/monitoring/symptom-records/${symptomRecordId}`, {
     method: "PATCH",
-    body: JSON.stringify({ ...payload, notes: payload.notes || null, image_url: payload.image_url || null }),
+    body: JSON.stringify({
+      ...payload,
+      notes: payload.notes || null,
+      ...(payload.image_url !== undefined ? { image_url: payload.image_url || null } : {}),
+    }),
   });
 }
 
