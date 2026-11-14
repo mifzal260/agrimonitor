@@ -95,7 +95,7 @@ Dependency scanning reports **22 npm advisories (9 high, 13 moderate)** across t
 ### AG-02 — Session restoration clears credentials for transient failures
 
 **Severity:** Medium
-**Status:** Confirmed.
+**Status:** Confirmed at the Phase 1 audit baseline; fixed on the Phase 2 feature branch, not deployed.
 
 - **Evidence:** `agrimonitor_frontend/src/App.tsx:75-81` clears stored tokens in a catch-all handler for `getMe()`. The existing test in `src/__tests__/App.routing.test.tsx:182-194` mocks a generic error and expects logout behavior rather than distinguishing authentication failures from network/server failures.
 - **Root cause:** Session restoration treats all request failures as invalid credentials.
@@ -200,7 +200,7 @@ Dependency scanning reports **22 npm advisories (9 high, 13 moderate)** across t
 ### AG-09 — Custom crop helper text contradicts per-record storage
 
 **Severity:** Low
-**Status:** Confirmed.
+**Status:** Confirmed at the Phase 1 audit baseline; corrected on the Phase 2 feature branch, not deployed.
 
 - **Evidence:** `agrimonitor_frontend/src/i18n/locales/ms.json:149` and `en.json:149` say a custom crop is added to the shared catalog. The current create flow stores the custom name on a planting record (`MonitoringPage.tsx` and backend planting-record schema/service), not in the shared catalog.
 - **Root cause:** Localization copy was not updated after custom crop storage changed.
@@ -244,7 +244,7 @@ Dependency scanning reports **22 npm advisories (9 high, 13 moderate)** across t
 
 ## Finding classification
 
-- **Confirmed functional bugs:** AG-02 (session restoration on transient errors), AG-03 (unbounded read before CSV size check), AG-09 (incorrect crop-sharing copy), BUG-07, and BUG-08.
+- **Confirmed functional bugs at the audit baseline:** AG-02 (session restoration on transient errors), AG-03 (unbounded read before CSV size check), AG-09 (incorrect crop-sharing copy), BUG-07, and BUG-08. AG-02, AG-09, and BUG-07 have fixes on the Phase 2 feature branch; none are deployed.
 - **Confirmed technical/security debt, with production exposure not fully established:** AG-01 dependency advisories; AG-08 raw IP logging; lack of CI and PostgreSQL/E2E validation.
 - **Unverified deployment/configuration risks:** AG-04 actual shared rate-limit behavior, AG-05 actual use of legacy tokens, AG-07 required API URL in the live deployment, and manual migration sequencing.
 - **Business-rule-dependent discrepancy:** AG-06 financial totals. Do not modify the accounting formula until the business rule is approved.
@@ -311,6 +311,6 @@ Dependency scanning reports **22 npm advisories (9 high, 13 moderate)** across t
 | PostgreSQL/Neon integration, production migration, production smoke test | Not run by design |
 | CI workflow, backend lint/type checker, browser E2E | Not present/configured in this repository |
 
-## Phase 1 conclusion
+## Phase 1 conclusion (audit-time snapshot)
 
-The targeted BUG-07 and BUG-08 audits and tests are complete. No application runtime code, dependencies, deployment settings, production data, or production services were changed. The only code changes are regression tests that capture current behavior and strict-xfail expected behavior; they do not implement Phase 2. Await owner approval of the proposed scope and decisions above before implementation.
+At Phase 1 completion, the targeted BUG-07 and BUG-08 audits and characterization tests were complete without application runtime changes. This document records findings from that audit baseline; subsequent approved fixes and current test status are recorded in [08-phase-2-implementation-report.md](./08-phase-2-implementation-report.md). No production data or services were changed.
