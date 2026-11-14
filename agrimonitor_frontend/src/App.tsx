@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { getMe, logout } from "./api/auth";
-import { resetUnauthorizedHandler } from "./api/client";
+import { ApiError, resetUnauthorizedHandler } from "./api/client";
 import { authSessionExpiredEvent, clearToken, migrateLegacyToken, setAuthTokens, setToken } from "./auth/authStorage";
 import { LanguageSwitcher } from "./components/common/LanguageSwitcher";
 import { StatusBadge } from "./components/StatusBadge";
@@ -28,6 +28,7 @@ type NavigationItem = {
 };
 
 const fallbackAuthenticatedPath: AppRoute = "/dashboard";
+type SessionError = "forbidden" | "unavailable";
 
 function App() {
   const { t } = useTranslation();
@@ -36,6 +37,8 @@ function App() {
   const [token, setTokenState] = useState(() => migrateLegacyToken());
   const [user, setUser] = useState<User | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(Boolean(token));
+  const [sessionError, setSessionError] = useState<SessionError | null>(null);
+  const [sessionRetry, setSessionRetry] = useState(0);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const navigationGroups = useMemo<Array<{ label: string; items: NavigationItem[] }>>(() => [
@@ -67,31 +70,41 @@ function App() {
     if (!token) {
       setIsCheckingSession(false);
       setUser(null);
+      setSessionError(null);
       return;
     }
 
     let isCurrent = true;
     setIsCheckingSession(true);
+    setSessionError(null);
     getMe().then((currentUser) => {
-      if (isCurrent) setUser(currentUser);
-    }).catch(() => {
-      clearToken();
       if (isCurrent) {
-        setTokenState(null);
-        setUser(null);
+        setUser(currentUser);
+        setSessionError(null);
       }
+    }).catch((error: unknown) => {
+      if (!isCurrent) return;
+      setUser(null);
+      if (error instanceof ApiError && error.status === 401) {
+        clearToken();
+        setTokenState(null);
+        setSessionError(null);
+        return;
+      }
+      setSessionError(error instanceof ApiError && error.status === 403 ? "forbidden" : "unavailable");
     }).finally(() => {
       if (isCurrent) setIsCheckingSession(false);
     });
 
     return () => { isCurrent = false; };
-  }, [token]);
+  }, [sessionRetry, token]);
 
   useEffect(() => {
     function handleSessionExpired() {
       clearToken();
       setTokenState(null);
       setUser(null);
+      setSessionError(null);
       setIsUserMenuOpen(false);
       navigate("/login", { replace: true, state: { from: location.pathname } });
     }
@@ -147,7 +160,7 @@ function App() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <DashboardPage token={token ?? ""} />
           </ProtectedAppShell>
         }
@@ -155,7 +168,7 @@ function App() {
       <Route
         path="/monitoring"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <MonitoringPage token={token ?? ""} />
           </ProtectedAppShell>
         }
@@ -163,7 +176,7 @@ function App() {
       <Route
         path="/market-prices"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <MarketPricePage token={token ?? ""} />
           </ProtectedAppShell>
         }
@@ -171,7 +184,7 @@ function App() {
       <Route
         path="/iot-monitoring"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <IotMonitoringPage token={token ?? ""} />
           </ProtectedAppShell>
         }
@@ -179,7 +192,7 @@ function App() {
       <Route
         path="/finance"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <FinancePage token={token ?? ""} />
           </ProtectedAppShell>
         }
@@ -187,7 +200,7 @@ function App() {
       <Route
         path="/agri-chat"
         element={
-          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
+          <ProtectedAppShell activeItem={activeItem} isCheckingSession={isCheckingSession} sessionError={sessionError} onRetrySession={() => setSessionRetry((retry) => retry + 1)} navigationGroups={navigationGroups} navigationItems={navigationItems} onLogout={handleLogout} token={token} user={user} isUserMenuOpen={isUserMenuOpen} setIsUserMenuOpen={setIsUserMenuOpen}>
             <AgriChatPage />
           </ProtectedAppShell>
         }
@@ -201,6 +214,8 @@ function ProtectedAppShell({
   activeItem,
   children,
   isCheckingSession,
+  onRetrySession,
+  sessionError,
   isUserMenuOpen,
   navigationGroups,
   navigationItems,
@@ -212,6 +227,8 @@ function ProtectedAppShell({
   activeItem: NavigationItem;
   children: React.ReactNode;
   isCheckingSession: boolean;
+  onRetrySession: () => void;
+  sessionError: SessionError | null;
   isUserMenuOpen: boolean;
   navigationGroups: Array<{ label: string; items: NavigationItem[] }>;
   navigationItems: NavigationItem[];
@@ -224,6 +241,26 @@ function ProtectedAppShell({
   const location = useLocation();
 
   if (isCheckingSession) return <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">{t("header.checkingSession")}</main>;
+  if (sessionError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-field-50 px-5 text-slate-700">
+        <section className="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm" role="alert">
+          <h1 className="text-lg font-semibold text-slate-950">
+            {sessionError === "forbidden" ? t("auth.sessionForbidden") : t("auth.sessionUnavailable")}
+          </h1>
+          {sessionError === "unavailable" && (
+            <button
+              className="mt-4 rounded-md bg-field-700 px-4 py-2 text-sm font-semibold text-white hover:bg-field-800"
+              type="button"
+              onClick={onRetrySession}
+            >
+              {t("auth.retrySession")}
+            </button>
+          )}
+        </section>
+      </main>
+    );
+  }
   if (!token || !user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
 
   return (

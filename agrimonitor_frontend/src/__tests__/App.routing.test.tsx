@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getRefreshToken, getToken, setAuthTokens, setToken } from "../auth/authStorage";
+import { ApiError, resetUnauthorizedHandler } from "../api/client";
 import { getMe, login } from "../api/auth";
 import App from "../App";
 import type { User } from "../types/auth";
@@ -50,6 +51,7 @@ describe("App routing", () => {
     sessionStorage.clear();
     localStorage.clear();
     vi.clearAllMocks();
+    resetUnauthorizedHandler();
   });
 
   it("redirects protected dashboard to login without token", async () => {
@@ -179,10 +181,9 @@ describe("App routing", () => {
     expect(getRefreshToken()).toBeNull();
   });
 
-  it("clears legacy access auth and returns to login after a protected 401", async () => {
-    vi.mocked(getMe).mockRejectedValueOnce(new Error("Expired"));
-    setAuthTokens("legacy-access-token", "stale-refresh-token");
-    sessionStorage.removeItem("agrimonitor_refresh_token");
+  it("clears credentials and returns to login after an unrecoverable 401", async () => {
+    vi.mocked(getMe).mockRejectedValueOnce(new ApiError("Expired", 401));
+    setAuthTokens("expired-access-token", "rejected-refresh-token");
 
     renderRoute("/dashboard");
 
@@ -191,6 +192,69 @@ describe("App routing", () => {
     expect(getRefreshToken()).toBeNull();
     expect(vi.mocked(getMe)).toHaveBeenCalledTimes(1);
   });
+
+  it("retains credentials and displays an authorization error for 403", async () => {
+    vi.mocked(getMe).mockRejectedValueOnce(new ApiError("Forbidden", 403));
+    setAuthTokens("valid-access-token", "valid-refresh-token");
+
+    renderRoute("/dashboard");
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/kebenaran|permission/i);
+    expect(getToken()).toBe("valid-access-token");
+    expect(getRefreshToken()).toBe("valid-refresh-token");
+    expect(screen.queryByRole("button", { name: /cuba semula|retry/i })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["HTTP 5xx", new ApiError("Service unavailable", 503)],
+    ["network failure", new TypeError("Failed to fetch")],
+    ["timeout", new DOMException("The request timed out", "AbortError")],
+  ])("retains credentials and allows retry after a %s", async (_reason, error) => {
+    const user = userEvent.setup();
+    vi.mocked(getMe)
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce(mockUser);
+    setAuthTokens("valid-access-token", "valid-refresh-token");
+
+    renderRoute("/dashboard");
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(getToken()).toBe("valid-access-token");
+    expect(getRefreshToken()).toBe("valid-refresh-token");
+    expect(vi.mocked(getMe)).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: /cuba semula|retry/i }));
+
+    expect(await screen.findByText("Dashboard page mock")).toBeInTheDocument();
+    expect(getToken()).toBe("valid-access-token");
+    expect(getRefreshToken()).toBe("valid-refresh-token");
+    expect(vi.mocked(getMe)).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves credentials when session restoration succeeds", async () => {
+    setAuthTokens("refreshed-access-token", "rotated-refresh-token");
+    renderRoute("/dashboard");
+
+    expect(await screen.findByText("Dashboard page mock")).toBeInTheDocument();
+    expect(getToken()).toBe("refreshed-access-token");
+    expect(getRefreshToken()).toBe("rotated-refresh-token");
+  });
+
+  it("keeps the session when token refresh completes before session restoration", async () => {
+    setAuthTokens("expired-access-token", "refresh-token");
+    vi.mocked(getMe).mockImplementationOnce(async () => {
+      setAuthTokens("rotated-access-token", "rotated-refresh-token");
+      return mockUser;
+    });
+
+    renderRoute("/dashboard");
+
+    expect(await screen.findByText("Dashboard page mock")).toBeInTheDocument();
+    expect(getToken()).toBe("rotated-access-token");
+    expect(getRefreshToken()).toBe("rotated-refresh-token");
+  });
+
   it("uses dashboard fallback for an unknown route when authenticated", async () => {
     setToken("valid-token");
     renderRoute("/unknown-route");
