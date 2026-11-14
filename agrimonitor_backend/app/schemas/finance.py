@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class CostBase(BaseModel):
@@ -21,6 +23,13 @@ class CostUpdate(BaseModel):
     amount: Decimal | None = Field(default=None, gt=0)
     cost_date: date | None = None
     notes: str | None = None
+
+    @field_validator("cost_type", "amount", "cost_date", mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
 
 
 class CostRead(CostBase):
@@ -49,6 +58,13 @@ class HarvestUpdate(BaseModel):
     unit: str | None = Field(default=None, min_length=1, max_length=40)
     selling_price_per_unit: Decimal | None = Field(default=None, gt=0)
     notes: str | None = None
+
+    @field_validator("harvest_date", "quantity", "unit", "selling_price_per_unit", mode="before")
+    @classmethod
+    def reject_null_for_required_fields(cls, value: Any) -> Any:
+        if value is None:
+            raise ValueError("Field cannot be null")
+        return value
 
 
 class HarvestRead(HarvestBase):
