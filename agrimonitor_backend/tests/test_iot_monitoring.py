@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.models.sensor_reading import SensorReading
@@ -70,6 +71,70 @@ def test_history_endpoint_respects_limit(client: TestClient) -> None:
     data = response.json()
     assert data["mode"] == "simulation"
     assert len(data["readings"]) == 3
+
+
+def create_readings_with_same_hour(db_session) -> None:
+    device = get_or_create_demo_device(db_session)
+    first_hour = datetime(2026, 2, 3, 10, 5, tzinfo=timezone.utc)
+    readings = [
+        SensorReading(
+            device_id=device.id,
+            temperature=temperature,
+            humidity=60 + index,
+            soil_moisture=40 + index,
+            light_intensity=300 + index,
+            battery_level=90 - index,
+            recorded_at=recorded_at,
+        )
+        for index, (temperature, recorded_at) in enumerate(
+            [
+                (20, first_hour),
+                (24, first_hour + timedelta(minutes=30)),
+                (28, first_hour + timedelta(hours=1)),
+            ]
+        )
+    ]
+    db_session.add_all(readings)
+    db_session.commit()
+
+
+def test_hourly_interval_currently_returns_the_same_readings_as_raw(
+    client: TestClient,
+    db_session,
+) -> None:
+    token = register_user(client)
+    create_readings_with_same_hour(db_session)
+    headers = auth_header(token)
+
+    raw = client.get("/api/v1/monitoring/sensors/history?interval=raw", headers=headers)
+    hourly = client.get("/api/v1/monitoring/sensors/history?interval=hourly", headers=headers)
+
+    assert raw.status_code == 200
+    assert hourly.status_code == 200
+    assert len(raw.json()["readings"]) == 3
+    assert hourly.json()["readings"] == raw.json()["readings"]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="BUG-08: hourly history is expected to return at most one reading per hour",
+)
+def test_hourly_interval_should_group_readings_by_hour(
+    client: TestClient,
+    db_session,
+) -> None:
+    token = register_user(client)
+    create_readings_with_same_hour(db_session)
+
+    response = client.get(
+        "/api/v1/monitoring/sensors/history?interval=hourly",
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    readings = response.json()["readings"]
+    assert len(readings) == 2
+    assert len({reading["recorded_at"][11:13] for reading in readings}) == 2
 
 
 def test_offline_status_is_based_on_last_reading_age(db_session, monkeypatch) -> None:
