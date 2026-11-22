@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.agri_chat import AgriChatRequest, AgriChatStatus
-from app.services.agri_chat import get_ollama_status, stream_chat_response
+from app.services.agri_chat import get_deepseek_status, stream_chat_response
 
 logger = logging.getLogger("agrimonitor.agri_chat")
 router = APIRouter()
@@ -18,7 +18,7 @@ router = APIRouter()
 async def read_agri_chat_status(
     _: User = Depends(get_current_user),
 ) -> AgriChatStatus:
-    return AgriChatStatus(**(await get_ollama_status()))
+    return AgriChatStatus(**(await get_deepseek_status()))
 
 
 @router.post("/chat")
@@ -26,11 +26,11 @@ async def chat_with_agri_assistant(
     payload: AgriChatRequest,
     _: User = Depends(get_current_user),
 ) -> StreamingResponse:
-    ollama_status = await get_ollama_status()
-    if not ollama_status["available"]:
+    deepseek_status = await get_deepseek_status()
+    if not deepseek_status["available"]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=ollama_status["message"],
+            detail=deepseek_status["message"],
         )
 
     async def events() -> AsyncIterator[str]:

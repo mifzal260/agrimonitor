@@ -24,58 +24,55 @@ SYSTEM_PROMPT = (
 
 
 def _headers() -> dict[str, str]:
-    api_key = (settings.ollama_api_key or "").strip()
+    api_key = (settings.deepseek_api_key or "").strip()
     return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
 
 def _model_names(payload: dict[str, Any]) -> set[str]:
-    models = payload.get("models")
+    models = payload.get("data")
     if not isinstance(models, list):
         return set()
     return {
         name
         for item in models
         if isinstance(item, dict)
-        for name in (item.get("name"), item.get("model"))
+        for name in (item.get("id"),)
         if isinstance(name, str)
     }
 
 
-async def get_ollama_status() -> dict[str, str | bool]:
+async def get_deepseek_status() -> dict[str, str | bool]:
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             response = await client.get(
-                f"{settings.ollama_base_url}/api/tags",
+                f"{settings.deepseek_base_url}/models",
                 headers=_headers(),
             )
         if response.status_code in {401, 403}:
             return {
                 "available": False,
-                "model": settings.ollama_model,
-                "message": "Ollama access was denied. Check the configured OLLAMA_API_KEY.",
+                "model": settings.deepseek_model,
+                "message": "DeepSeek access was denied. Check the configured DEEPSEEK_API_KEY.",
             }
         response.raise_for_status()
         payload = response.json()
     except (httpx.HTTPError, ValueError):
-        logger.warning("ollama_status_unavailable", exc_info=True)
+        logger.warning("deepseek_status_unavailable", exc_info=True)
         return {
             "available": False,
-            "model": settings.ollama_model,
-            "message": "AI service is unavailable. Check the configured Ollama endpoint.",
+            "model": settings.deepseek_model,
+            "message": "AI service is unavailable. Check the configured DeepSeek endpoint.",
         }
 
-    if not isinstance(payload, dict) or settings.ollama_model not in _model_names(payload):
+    if not isinstance(payload, dict) or settings.deepseek_model not in _model_names(payload):
         return {
             "available": False,
-            "model": settings.ollama_model,
-            "message": (
-                f"Model '{settings.ollama_model}' is not installed on the Ollama server. "
-                f"Run 'ollama pull {settings.ollama_model}' on that server."
-            ),
+            "model": settings.deepseek_model,
+            "message": f"Model '{settings.deepseek_model}' is unavailable from the DeepSeek API.",
         }
     return {
         "available": True,
-        "model": settings.ollama_model,
+        "model": settings.deepseek_model,
         "message": "AI assistant is ready.",
     }
 
@@ -84,20 +81,17 @@ async def stream_chat_response(
     messages: list[AgriChatMessage],
 ) -> AsyncIterator[str]:
     recent_messages = messages[-10:]
-    ollama_messages = [
+    deepseek_messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         *[message.model_dump() for message in recent_messages],
     ]
     payload = {
-        "model": settings.ollama_model,
-        "messages": ollama_messages,
+        "model": settings.deepseek_model,
+        "messages": deepseek_messages,
         "stream": True,
-        "think": False,
-        "options": {
-            "temperature": settings.ollama_temperature,
-            "num_ctx": settings.ollama_num_ctx,
-            "num_predict": settings.ollama_num_predict,
-        },
+        "thinking": {"type": "enabled"},
+        "reasoning_effort": settings.deepseek_reasoning_effort,
+        "max_tokens": settings.deepseek_max_tokens,
     }
 
     try:
@@ -107,33 +101,38 @@ async def stream_chat_response(
         async with httpx.AsyncClient(timeout=timeout) as client:
             async with client.stream(
                 "POST",
-                f"{settings.ollama_base_url}/api/chat",
+                f"{settings.deepseek_base_url}/chat/completions",
                 headers=_headers(),
                 json=payload,
             ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
-                    if not line:
+                    if not line or line.startswith(":") or line.startswith("event:"):
                         continue
-                    chunk = json.loads(line)
+                    if not line.startswith("data:"):
+                        raise ValueError("DeepSeek returned an invalid streaming event")
+                    data = line.removeprefix("data:").strip()
+                    if data == "[DONE]":
+                        completed = True
+                        break
+                    chunk = json.loads(data)
                     if not isinstance(chunk, dict):
-                        raise ValueError("Ollama returned an invalid response")
+                        raise ValueError("DeepSeek returned an invalid response")
                     if "error" in chunk:
-                        raise ValueError("Ollama returned a generation error")
-                    message = chunk.get("message")
-                    content = message.get("content", "") if isinstance(message, dict) else ""
+                        raise ValueError("DeepSeek returned a generation error")
+                    choices = chunk.get("choices")
+                    choice = choices[0] if isinstance(choices, list) and choices else None
+                    delta = choice.get("delta") if isinstance(choice, dict) else None
+                    content = delta.get("content", "") if isinstance(delta, dict) else ""
                     if content:
                         received_content = True
                         yield content
-                    if chunk.get("done"):
-                        completed = True
-                        break
         if not completed:
-            raise ValueError("Ollama stream ended before completion")
+            raise ValueError("DeepSeek stream ended before completion")
         if not received_content:
-            raise ValueError("Ollama returned an empty response")
+            raise ValueError("DeepSeek returned an empty response")
     except (httpx.HTTPError, json.JSONDecodeError, ValueError) as exc:
-        logger.warning("ollama_chat_stream_failed", exc_info=True)
+        logger.warning("deepseek_chat_stream_failed", exc_info=True)
         raise RuntimeError(
-            "The AI response was interrupted. Check the Ollama service and try again."
+            "The AI response was interrupted. Check the DeepSeek service and try again."
         ) from exc

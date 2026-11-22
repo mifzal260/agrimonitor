@@ -59,12 +59,16 @@ services:
         value: 30
       - key: REDIS_MAX_CONNECTIONS
         value: 20
-      - key: OLLAMA_BASE_URL
-        value: https://ollama.com
-      - key: OLLAMA_API_KEY
+      - key: DEEPSEEK_BASE_URL
+        value: https://api.deepseek.com
+      - key: DEEPSEEK_API_KEY
         sync: false
-      - key: OLLAMA_MODEL
-        value: beam
+      - key: DEEPSEEK_MODEL
+        value: deepseek-flash
+      - key: DEEPSEEK_REASONING_EFFORT
+        value: high
+      - key: DEEPSEEK_MAX_TOKENS
+        value: 400
 
   - type: web
     name: agrimonitor-frontend

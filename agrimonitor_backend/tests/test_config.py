@@ -220,24 +220,22 @@ def test_iot_settings_parse_and_require_safe_values() -> None:
         Settings(jwt_secret_key="local-test-secret", iot_online_after_seconds=900, iot_offline_after_seconds=300, _env_file=None)
 
 
-def test_ollama_settings_are_configurable_and_validated() -> None:
+def test_deepseek_settings_are_configurable_and_validated() -> None:
     settings = Settings(
         jwt_secret_key="local-test-secret",
-        ollama_base_url="https://ollama.example.com/",
-        ollama_model="llama3.1:8b",
-        ollama_temperature="0.5",
-        ollama_num_ctx="4096",
-        ollama_num_predict="300",
+        deepseek_base_url="https://deepseek.example.com/",
+        deepseek_model="deepseek-test",
+        deepseek_reasoning_effort="max",
+        deepseek_max_tokens="300",
         _env_file=None,
     )
 
-    assert settings.ollama_base_url == "https://ollama.example.com"
-    assert settings.ollama_model == "llama3.1:8b"
-    assert settings.ollama_temperature == 0.5
-    assert settings.ollama_num_ctx == 4096
-    assert settings.ollama_num_predict == 300
+    assert settings.deepseek_base_url == "https://deepseek.example.com"
+    assert settings.deepseek_model == "deepseek-test"
+    assert settings.deepseek_reasoning_effort == "max"
+    assert settings.deepseek_max_tokens == 300
 
     with pytest.raises(ValidationError):
-        Settings(jwt_secret_key="local-test-secret", ollama_base_url="ollama.example.com", _env_file=None)
+        Settings(jwt_secret_key="local-test-secret", deepseek_base_url="deepseek.example.com", _env_file=None)
     with pytest.raises(ValidationError):
-        Settings(jwt_secret_key="local-test-secret", ollama_temperature=1.1, _env_file=None)
+        Settings(jwt_secret_key="local-test-secret", deepseek_reasoning_effort="medium", _env_file=None)

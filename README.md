@@ -143,7 +143,7 @@ A starter `render.yaml` is included at the project root.
 
 ## AI Agriculture Assistant
 
-The authenticated `/agri-chat` page streams Malay or English answers from Ollama Cloud. Configure `OLLAMA_API_KEY` with your Ollama Cloud key; `OLLAMA_BASE_URL` defaults to `https://ollama.com` and `OLLAMA_MODEL` to `beam`. See [docs/ai-agriculture-chat.md](docs/ai-agriculture-chat.md) for development and Render setup.
+The authenticated `/agri-chat` page streams Malay or English answers from the DeepSeek API. Configure `DEEPSEEK_API_KEY` with your DeepSeek API key; `DEEPSEEK_BASE_URL` defaults to `https://api.deepseek.com` and `DEEPSEEK_MODEL` to `deepseek-flash`. See [docs/ai-agriculture-chat.md](docs/ai-agriculture-chat.md) for development and Render setup.
 
 ## Security Notes
 
